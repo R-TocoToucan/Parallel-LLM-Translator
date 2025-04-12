@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Text Assistant</title>
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Close Button 닫기 버튼 -->
+    <button id="close-popup" class="close-btn" title="Close">&times;</button>
+  
+    <!-- Initial Selection Popup -->
+    <div id="selection-popup" class="selection-popup">
+      <div class="selection-bar">
+        <div class="extension-icon">
+          <div class="icon-placeholder">T</div>
+        </div>
+        <div class="selection-buttons">
+          <button class="function-button" data-function="explanation">Explanation</button>
+          <button class="function-button" data-function="translation">Translation</button>
+          <button class="function-button" data-function="enhancement">Enhancement</button>
+        </div>
+      </div>
+    </div>
+  
+    <!-- Function Popups (Initially Hidden) -->
+    <div id="function-popups" class="function-popups hidden">
+      <div class="back-button-container">
+        <button id="back-button" class="back-button">← Back to Selection</button>
+      </div>
+  
+      <!-- Explanation Section -->
+      <section id="explanation-section" class="section explanation-section hidden">
+        <h2>Explanation</h2>
+        <div class="content">
+          <div class="text-box">
+            <textarea id="explanation-original-text" class="original-textarea" placeholder="Explanation of the highlighted text will appear here..."></textarea>
+          </div>
+        </div>
+      </section>
+  
+      <!-- Translation Section -->
+      <section id="translation-section" class="section translation-section hidden">
+        <h2>Translation</h2>
+        <div class="content">
+          <div class="original-text">
+            <h3>Original Text</h3>
+            <div class="text-box">
+              <textarea id="translation-original-text" class="original-textarea" placeholder="Your highlighted text will appear here..."></textarea>
+            </div>
+          </div>
+  
+          <div class="translated-text">
+            <div class="translation-header">
+              <h3>Translated Text</h3>
+              <div class="language-selector">
+                <select aria-label="Select language">
+                  <option value="en">English</option>
+                  <option value="es">Spanish</option>
+                  <option value="fr">French</option>
+                  <option value="de">German</option>
+                  <option value="zh">Chinese</option>
+                  <option value="ja">Japanese</option>
+                  <option value="ko">Korean</option>
+                </select>
+              </div>
+            </div>
+            <div class="text-box">
+              <textarea id="translation-translated-text" class="translated-textarea" placeholder="Translation will appear here..."></textarea>
+            </div>
+          </div>
+  
+          <button class="action-button replace-button">Replace with Translation</button>
+        </div>
+      </section>
+  
+      <!-- Enhancement Section -->
+      <section id="enhancement-section" class="section enhancement-section hidden">
+        <h2>Enhancement</h2>
+        <div class="content">
+          <div class="original-text">
+            <h3>Original Text</h3>
+            <div class="text-box">
+              <textarea id="enhancement-original-text" class="original-textarea" placeholder="Your highlighted text will appear here..."></textarea>
+            </div>
+          </div>
+  
+          <div class="enhanced-text">
+            <h3>Enhanced Text</h3>
+            <div class="text-box">
+              <textarea id="enhancement-enhanced-text" class="enhanced-textarea" placeholder="Enhanced version will appear here..."></textarea>
+            </div>
+          </div>
+  
+          <button class="action-button replace-button">Replace with Enhancement</button>
+        </div>
+      </section>
+    </div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>

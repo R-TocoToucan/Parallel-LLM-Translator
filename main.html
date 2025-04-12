@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Translator Extension</title>
+  <script src="lib/firebase/firebase-app-compat.js"></script>
+  <script src="lib/firebase/firebase-auth-compat.js"></script>
+  <script src="lib/firebase/firebase-ui-auth.js"></script>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="lib/firebase/firebase-ui-auth.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+  <!-- Translator UI -->
+  <div class="container" id="translator-ui">
+    <div class="header">Translator</div>
+
+    <!-- Translation Provider Dropdown -->
+    <div class="select-group">
+      <label for="provider">Translation Provider</label>
+      <select id="provider" class="provider-select">
+        <option value="deepl">DeepL</option>
+        <option value="openai">OpenAI</option>
+        <option value="papago">Naver Papago</option>
+      </select>
+    </div>
+
+    <!-- Language Selection Dropdowns -->
+    <div class="select-group">
+      <label>From Language</label>
+      <div class="custom-dropdown" id="source-dropdown"></div>
+    </div>
+
+    <div class="select-group">
+      <label>To Language</label>
+      <div class="custom-dropdown" id="target-dropdown"></div>
+    </div>
+
+    <!-- Translate Button -->
+    <button class="translate-btn">Translate This Page</button>
+
+    <!-- Go to Settings Button -->
+    <a href="settings.html" class="settings-btn">
+      Go to Settings
+    </a>
+
+    <button id="show-login" class="translate-btn">
+      <i class="fas fa-sign-in-alt"></i> Sign In
+    </button>
+  </div>
+
+  <div class="footer">
+    <i class="fas fa-sun"></i>
+    <label class="toggle-wrapper">
+      <input type="checkbox" id="dark-toggle" />
+      <span class="toggle"></span>
+    </label>
+    <i class="fas fa-moon"></i>
+  </div>
+  
+  <!-- Firebase UI Auth Container -->
+  <div id="firebaseui-auth-container" style="display: none; margin: 0 20px 10px;"></div>
+
+  <script src="main.js"></script>
+</body>
+</html>

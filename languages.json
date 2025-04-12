@@ -1,0 +1,155 @@
+{
+    "languages": {
+      "en": {
+        "code": "en",
+        "name": "English",
+        "ui": {
+          "translate_page": "Translate this page",
+          "settings": "Settings",
+          "login": "Login",
+          "dark_mode_toggle": "Toggle Dark Mode",
+          "translate_feature": "Translate",
+          "enhance_feature": "Enhance",
+          "explain_feature": "Explain",
+          "textbox1_label": "Selected Text",
+          "textbox2_label": "Translated Text"
+        }
+      },
+      "fr": {
+        "code": "fr",
+        "name": "Français",
+        "ui": {
+          "translate_page": "Traduire cette page",
+          "settings": "Paramètres",
+          "login": "Connexion",
+          "dark_mode_toggle": "Basculer le mode sombre",
+          "translate_feature": "Traduire",
+          "enhance_feature": "Améliorer",
+          "explain_feature": "Expliquer",
+          "textbox1_label": "Texte sélectionné",
+          "textbox2_label": "Texte traduit"
+        }
+      },
+      "de": {
+        "code": "de",
+        "name": "Deutsch",
+        "ui": {
+          "translate_page": "Diese Seite übersetzen",
+          "settings": "Einstellungen",
+          "login": "Anmelden",
+          "dark_mode_toggle": "Dunkelmodus umschalten",
+          "translate_feature": "Übersetzen",
+          "enhance_feature": "Verbessern",
+          "explain_feature": "Erklären",
+          "textbox1_label": "Ausgewählter Text",
+          "textbox2_label": "Übersetzter Text"
+        }
+      },
+      "es": {
+        "code": "es",
+        "name": "Español",
+        "ui": {
+          "translate_page": "Traducir esta página",
+          "settings": "Configuración",
+          "login": "Iniciar sesión",
+          "dark_mode_toggle": "Alternar modo oscuro",
+          "translate_feature": "Traducir",
+          "enhance_feature": "Mejorar",
+          "explain_feature": "Explicar",
+          "textbox1_label": "Texto seleccionado",
+          "textbox2_label": "Texto traducido"
+        }
+      },
+      "it": {
+        "code": "it",
+        "name": "Italiano",
+        "ui": {
+          "translate_page": "Traduci questa pagina",
+          "settings": "Impostazioni",
+          "login": "Accedi",
+          "dark_mode_toggle": "Attiva/disattiva modalità scura",
+          "translate_feature": "Traduci",
+          "enhance_feature": "Migliorare",
+          "explain_feature": "Spiegare",
+          "textbox1_label": "Testo selezionato",
+          "textbox2_label": "Testo tradotto"
+        }
+      },
+      "ja": {
+        "code": "ja",
+        "name": "日本語",
+        "ui": {
+          "translate_page": "このページを翻訳",
+          "settings": "設定",
+          "login": "ログイン",
+          "dark_mode_toggle": "ダークモード切り替え",
+          "translate_feature": "翻訳",
+          "enhance_feature": "改善",
+          "explain_feature": "説明",
+          "textbox1_label": "選択されたテキスト",
+          "textbox2_label": "翻訳されたテキスト"
+        }
+      },
+      "ko": {
+        "code": "ko",
+        "name": "한국어",
+        "ui": {
+          "translate_page": "이 페이지 번역하기",
+          "settings": "설정",
+          "login": "로그인",
+          "dark_mode_toggle": "다크 모드 전환",
+          "translate_feature": "번역",
+          "enhance_feature": "향상",
+          "explain_feature": "설명",
+          "textbox1_label": "선택된 텍스트",
+          "textbox2_label": "번역된 텍스트"
+        }
+      },
+      "zh": {
+        "code": "zh",
+        "name": "中文 (简体)",
+        "ui": {
+          "translate_page": "翻译此页面",
+          "settings": "设置",
+          "login": "登录",
+          "dark_mode_toggle": "切换暗黑模式",
+          "translate_feature": "翻译",
+          "enhance_feature": "优化",
+          "explain_feature": "解释",
+          "textbox1_label": "选中的文本",
+          "textbox2_label": "翻译的文本"
+        }
+      },
+      "th": {
+        "code": "th",
+        "name": "ไทย",
+        "ui": {
+          "translate_page": "แปลหน้านี้",
+          "settings": "การตั้งค่า",
+          "login": "เข้าสู่ระบบ",
+          "dark_mode_toggle": "สลับโหมดมืด",
+          "translate_feature": "แปล",
+          "enhance_feature": "ปรับปรุง",
+          "explain_feature": "อธิบาย",
+          "textbox1_label": "ข้อความที่เลือก",
+          "textbox2_label": "ข้อความที่แปล"
+        }
+      },
+      "vi": {
+        "code": "vi",
+        "name": "Tiếng Việt",
+        "ui": {
+          "translate_page": "Dịch trang này",
+          "settings": "Cài đặt",
+          "login": "Đăng nhập",
+          "dark_mode_toggle": "Chuyển đổi chế độ tối",
+          "translate_feature": "Dịch",
+          "enhance_feature": "Cải thiện",
+          "explain_feature": "Giải thích",
+          "textbox1_label": "Văn bản được chọn",
+          "textbox2_label": "Văn bản đã dịch"
+        }
+      }
+    },
+    "default_language": "en"
+  }
