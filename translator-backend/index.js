@@ -1,9 +1,12 @@
+// index.js
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import fetch from 'node-fetch';
+import { PROMPTS, SYSTEM_MESSAGE } from './prompts.js';
 
 dotenv.config();
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 const API_KEY = process.env.OPENAI_API_KEY;
@@ -11,48 +14,60 @@ const API_KEY = process.env.OPENAI_API_KEY;
 app.use(cors());
 app.use(express.json());
 
-app.post('/translate', async (req, res) => {
-    const { text, sourceLang, targetLang, model, tier = 'free' } = req.body;
-  
-    const selectedModel = tier === 'pro' ? 'gpt-4' : 'gpt-3.5-turbo';
+function getModel(tier) {
+  return tier === 'pro' ? 'gpt-4' : 'gpt-3.5-turbo';
+}
 
-    if (!text || !sourceLang || !targetLang) {
+async function callOpenAI({ system, user, model }) {
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user }
+      ],
+      temperature: 0.3
+    })
+  });
+
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content?.trim() || null;
+}
+
+function createLLMRoute(path, promptBuilder) {
+  app.post(path, async (req, res) => {
+    const { text, language, tier = 'free' } = req.body;
+
+    if (!text || !language) {
       return res.status(400).json({ error: 'Missing input fields.' });
     }
 
+    const userPrompt = promptBuilder(text, language);
+
     try {
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: selectedModel,
-          messages: [
-            {
-              role: "system",
-              content: `You are a professional translator. Translate from ${sourceLang} to ${targetLang}. Return only the translated text.`
-            },
-            {
-              role: "user",
-              content: text
-            }
-          ],
-          temperature: 0.3
-        })
+      const response = await callOpenAI({
+        system: SYSTEM_MESSAGE,
+        user: userPrompt,
+        model: getModel(tier),
       });
-  
-      const data = await response.json();
-      const translated = data.choices?.[0]?.message?.content?.trim();
-      res.json({ translation: translated || "Translation failed." });
-  
-    } catch (error) {
-      console.error("Translation error:", error);
-      res.status(500).json({ error: 'Translation failed.' });
+      res.json({ result: response });
+    } catch (err) {
+      console.error(`Error in ${path}:`, err);
+      res.status(500).json({ error: 'OpenAI request failed.' });
     }
   });
-  
+}
+
+// Register endpoints
+createLLMRoute('/translate', PROMPTS.translate_webpage);
+createLLMRoute('/explain', PROMPTS.explain_phrase);
+createLLMRoute('/enhance', PROMPTS.enhance_text);
+createLLMRoute('/summarize', PROMPTS.summarize_webpage);
 
 app.listen(PORT, () => {
   console.log(`🟢 Translator backend is running on http://localhost:${PORT}`);

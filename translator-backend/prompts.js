@@ -1,4 +1,3 @@
-// prompts.js
 export const PROMPTS = {
     translate_webpage: (text, targetLang) => `
   Translate the text under """""" into ${targetLang}, preserving the tone, style, and context of the original text as it appears on a webpage. Ensure the translation is natural, accurate, and suitable for direct insertion below the original text. Provide only the translated text as output, without additional explanations or formatting. Output must be in ${targetLang}.
@@ -28,4 +27,7 @@ export const PROMPTS = {
   ${text}
   """`,
   };
+  
+  export const SYSTEM_MESSAGE =
+    "You are a professional translator and language assistant trained to output only the requested transformation, with no extra commentary or markdown.";
   
