@@ -11,7 +11,8 @@
 
   "host_permissions": [
     "https://api.openai.com/",
-    "http://localhost:3000/"
+    "http://localhost:3000/",
+    "chrome-extension://*/"
   ],
 
   "content_scripts": [
@@ -23,11 +24,11 @@
   ],
 
   "web_accessible_resources": [
-  {
-    "resources": ["popup.html", "popup.js", "popup_style.css"],
-    "matches": ["<all_urls>"],
-    "use_dynamic_url": true
-  }
+    {
+      "resources": ["popup.html", "popup.js", "popup_style.css"],
+      "matches": ["<all_urls>"],
+      "use_dynamic_url": true
+    }
   ],
   
   "options_page": "settings.html",

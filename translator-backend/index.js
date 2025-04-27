@@ -43,8 +43,10 @@ function createLLMRoute(path, promptBuilder) {
   app.post(path, async (req, res) => {
     const { text, language, tier = 'free' } = req.body;
 
-    if (!text || !language) {
-      return res.status(400).json({ error: 'Missing input fields.' });
+    console.log(`[📥 ${path.toUpperCase()} Request]:`, { text, language, tier });
+
+    if (typeof text !== "string" || text.length === 0|| typeof language !== "string" || language.length === 0) {
+      return res.status(400).json({ error: 'Invalid input types.' });
     }
 
     const userPrompt = promptBuilder(text, language);
