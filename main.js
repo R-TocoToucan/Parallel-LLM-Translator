@@ -1,3 +1,5 @@
+// main.js
+
 console.log("main.js is loaded");
 
 // Initialize Firebase using CDN
@@ -18,7 +20,7 @@ const ui = new firebaseui.auth.AuthUI(auth);
 // Show FirebaseUI on click
 document.getElementById('show-login')?.addEventListener('click', () => {
   const authContainer = document.getElementById('firebaseui-auth-container');
-  
+
   if (authContainer.style.display === 'block') {
     // If the sign-in options are already visible, hide them
     authContainer.style.display = 'none';
@@ -45,14 +47,14 @@ document.getElementById('show-login')?.addEventListener('click', () => {
   }
 });
 
-const BACKEND_URL = 'http://localhost:3000/translate';
+// --- UPDATE: Use deployed server, not localhost ---
+const BACKEND_URL = 'https://parallel-llm-translator.onrender.com/translate';
 
 // Helper function to get the associated toggle button for a given dropdown list.
 function getToggleButtonForDropdown(dropdown) {
   // Assume the toggle button is the immediate previous sibling.
   let toggleBtn = dropdown.previousElementSibling;
   if (!toggleBtn || !toggleBtn.classList.contains('dropdown-btn')) {
-    // As a fallback, if a data attribute pairing is used, try to locate the button.
     const dropdownId = dropdown.getAttribute('id');
     if (dropdownId) {
       toggleBtn = document.querySelector(`[data-dropdown="${dropdownId}"]`);
@@ -62,7 +64,7 @@ function getToggleButtonForDropdown(dropdown) {
 }
 
 // Create dropdown for language selection
-const createDropdown = (id, label, initialItems) => {
+const createDropdown = (id, label, initialItems, filterFn = () => true) => {
   const container = document.getElementById(id);
   const btn = document.createElement('button');
   btn.className = 'dropdown-btn';
@@ -70,56 +72,85 @@ const createDropdown = (id, label, initialItems) => {
 
   const list = document.createElement('div');
   list.className = 'dropdown-list';
-  // Optionally, assign an id to the list for fallback pairing.
   list.setAttribute('id', id + '-list');
 
-  let items = [...initialItems];
-  // Close dropdowns when clicking outside.
-  // Using capture ensures this listener is triggered before inner handlers can stop propagation.
-  document.addEventListener('click', (event) => {
-    const dropdown = document.querySelector('.dropdown-list.open');
-  if (dropdown && !dropdown.contains(event.target)) {
-    dropdown.classList.remove('open');
-  }
-});
-  const renderList = () => {
-    list.innerHTML = '';
-    // Sort the items so that favorited ones show at the top.
-    const sortedItems = [...items].sort((a, b) => b.favorited - a.favorited);
+  // Filter out sourceOnly items if requested (e.g., for target-dropdown)
+  let items = initialItems.filter(filterFn);
 
-    sortedItems.forEach(item => {
-      const div = document.createElement('div');
-      div.className = 'dropdown-item';
-      div.innerHTML = `<span>${item.label}</span><i class="fas fa-star star-icon${item.favorited ? ' favorited' : ''}"></i>`;
+  // Restore favorites and last selected from local storage
+  chrome.storage.local.get(['favorites', 'sourceLang', 'targetLang'], (data) => {
+    const key = (id === 'source-dropdown') ? 'sourceLang' : 'targetLang';
+    const lastSelected = data[key];
 
-      const star = div.querySelector('.star-icon');
-      star.addEventListener('click', e => {
-        e.stopPropagation(); // Prevent closing when clicking on the star
-        item.favorited = !item.favorited; // Toggle the favorited state
-        renderList(); // Re-render the list to update the star icon state
+    // Reapply saved favorites
+    if (data.favorites && Array.isArray(data.favorites)) {
+      items.forEach(item => {
+        item.favorited = data.favorites.includes(item.label);
       });
+    }
 
-      div.addEventListener('click', () => {
-        btn.innerHTML = `${item.label} <i class="fas fa-chevron-down"></i>`;
-        list.classList.remove('open');
+    // Sorting with favorites on top (already in your original logic)
+    const renderList = () => {
+      list.innerHTML = '';
+      const sortedItems = [...items].sort((a, b) => b.favorited - a.favorited);
+
+      sortedItems.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'dropdown-item';
+        div.innerHTML = `
+          <span>${item.label}</span>
+          <i class="fas fa-star star-icon${item.favorited ? ' favorited' : ''}"></i>
+        `;
+
+        const star = div.querySelector('.star-icon');
+        star.addEventListener('click', e => {
+          e.stopPropagation();
+          item.favorited = !item.favorited;
+          const updatedFavorites = items
+            .filter(i => i.favorited)
+            .map(i => i.label);
+          chrome.storage.local.set({ favorites: updatedFavorites });
+          renderList();
+        });
+
+        div.addEventListener('click', () => {
+          btn.innerHTML = `${item.label} <i class="fas fa-chevron-down"></i>`;
+          list.classList.remove('open');
+          chrome.storage.local.set({ [key]: item.label });
+        });
+
+        list.appendChild(div);
       });
+    };
 
-      list.appendChild(div);
-    });
-  };
+    // Restore last selected language label into the button
+    if (lastSelected) {
+      btn.innerHTML = `${lastSelected} <i class="fas fa-chevron-down"></i>`;
+    }
+
+    renderList();
+  });
 
   btn.addEventListener('click', (event) => {
-    event.stopPropagation(); // Prevent event propagation
-    list.classList.toggle('open'); // Toggle dropdown open state
+    event.stopPropagation();
+    list.classList.toggle('open');
+  });
+
+  // Close dropdown on outside click
+  document.addEventListener('click', (event) => {
+    const dropdown = document.querySelector('.dropdown-list.open');
+    if (dropdown && !dropdown.contains(event.target)) {
+      dropdown.classList.remove('open');
+    }
   });
 
   container.appendChild(btn);
   container.appendChild(list);
-  renderList();
 };
 
 // Languages for dropdown
 const languages = [
+  { label: 'Auto Detect', favorited: true, sourceOnly: true },
   { label: 'English', favorited: true },
   { label: 'Korean', favorited: true },
   { label: 'Japanese', favorited: false },
@@ -145,7 +176,7 @@ function applySelectTheme(providerSelect) {
 document.addEventListener('DOMContentLoaded', () => {
   // Initialize dropdowns
   createDropdown('source-dropdown', 'Select Language', languages);
-  createDropdown('target-dropdown', 'Select Language', languages);
+  createDropdown('target-dropdown', 'Select Language', languages, item => !item.sourceOnly);
 
   // Settings UI toggle
   const settingsBtn = document.querySelector('.settings-btn');
@@ -176,7 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Dark mode toggle. 다크모드 토글
   const darkToggle = document.getElementById('dark-toggle');
   const providerSelect = document.getElementById('provider');
-  
+
   const syncThemeWithToggle = () => {
     document.body.classList.toggle('light', !darkToggle.checked);
     applySelectTheme(providerSelect);
@@ -193,11 +224,11 @@ document.addEventListener('DOMContentLoaded', () => {
   darkToggle.checked = true;
   syncThemeWithToggle();
 
-  // main behavior (show/hide translator).
+  // main behavior (show/hide translator)
   const main = document.querySelector('.main-translator');
   const closeBtn = document.querySelector('.main-close');
-  const textarea = document.querySelector('.main-textarea');
-  const translateBtn = document.querySelector('.main-copy');
+  const translateBtn = document.getElementById('translate-btn');
+  console.log("[DEBUG] Translate button element:", translateBtn);  // DEBUG line
 
   document.addEventListener('keydown', e => {
     if (e.ctrlKey && e.key === 'b') {
@@ -209,32 +240,16 @@ document.addEventListener('DOMContentLoaded', () => {
     main.style.display = 'none';
   });
 
-  translateBtn.addEventListener('click', async () => {
-    const text = textarea.value.trim();
-    if (!text) return;
-
-    const sourceLang = getSelectedLanguageFromDropdown('source-dropdown') || 'English';
+  // 🔁 NEW: Full Page Translation — send message to content script
+  translateBtn?.addEventListener('click', () => {
     const targetLang = getSelectedLanguageFromDropdown('target-dropdown') || 'Korean';
-
-    textarea.value = 'Translating...';
-
-    try {
-      const res = await fetch(BACKEND_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text,
-          sourceLang,
-          targetLang,
-          tier: 'free'
-        })
-      });
-
-      const data = await res.json();
-      textarea.value = data.translation || 'Translation failed.';
-    } catch (err) {
-      console.error('Translation error:', err);
-      textarea.value = 'Server error.';
-    }
+    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+      if (!tabs[0]?.id) return;
+      chrome.tabs.sendMessage(
+        tabs[0].id,
+        { type: 'translatePage', targetLang },
+        resp => console.log('Content script replied:', resp)
+      );
+    });
   });
 });

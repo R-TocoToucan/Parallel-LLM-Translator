@@ -72,5 +72,5 @@ createLLMRoute('/enhance', PROMPTS.enhance_text);
 createLLMRoute('/summarize', PROMPTS.summarize_webpage);
 
 app.listen(PORT, () => {
-  console.log(`🟢 Translator backend is running on http://localhost:${PORT}`);
+  console.log(`Translator backend is running on http://localhost:${PORT}`);
 });

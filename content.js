@@ -1,3 +1,5 @@
+// content.js
+
 let popupInjected = false;
 let popupVisible = false; // 팝업 표시 여부 관리
 let outsideClickListener = null; // Listener for outside click to close popup 외부 클릭시 닫기
@@ -123,10 +125,98 @@ document.addEventListener("keydown", async (e) => {
         // 팝업이 닫혀있으면 새 좌표로 이동 후 열기
         movePopupTo(root, coords);
         root.style.display = "block";
-        updatePopupText(shadow, selectedText);
         popupVisible = true;
-        enableOutsideClickToClose(root); // 팝업 외부 클릭시 닫기 이벤트 활성화화
+        updatePopupText(shadow, selectedText);
       }
     }
+    // Close on outside click
+    if (popupVisible) enableOutsideClickToClose(root);
+  }
+});
+
+
+// --- Full-page translation logic moved into content.js ---
+async function translatePage(targetLang = 'en') {
+  const texts = [];
+  const nodes = [];
+
+  const walker = document.createTreeWalker(
+    document.body,
+    NodeFilter.SHOW_TEXT,
+    {
+      acceptNode: (node) => {
+        const trimmed = node.nodeValue.trim();
+        if (!trimmed) return NodeFilter.FILTER_REJECT;
+        const p = node.parentNode;
+        if (
+          p.nodeName === 'SCRIPT' ||
+          p.nodeName === 'STYLE'  ||
+          p.nodeName === 'TEXTAREA' ||
+          p.nodeName === 'INPUT' ||
+          p.nodeName === 'BUTTON' ||
+          p.isContentEditable
+        ) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    }
+  );
+
+  let n;
+  while (n = walker.nextNode()) {
+    texts.push(n.nodeValue);
+    nodes.push(n);
+  }
+
+  if (texts.length === 0) {
+    console.log("[content.js] No text to translate.");
+    return;
+  }
+
+  console.log(`[content.js] Translating ${texts.length} nodes…`);
+  try {
+    // Build a single-string payload
+    const payload = {
+      text: texts.join("\n\n"),
+      language: targetLang,
+      tier: 'free'
+    };
+
+    const res = await fetch(
+      'https://parallel-llm-translator.onrender.com/translate',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (!res.ok) {
+      console.error(`[content.js] Translate API returned HTTP ${res.status}`);
+      return;
+    }
+
+    const json = await res.json();
+    const translatedFull = json.result || json.translations || json.translation || "";
+    const splits = translatedFull
+    .split("\n\n")
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+  
+    // Reassign back to original text nodes
+    splits.forEach((t, i) => {
+      if (nodes[i]) nodes[i].nodeValue = t;
+    });
+
+    console.log('[✅ content.js] Page translation complete.');
+  } catch (err) {
+    console.error('[❌ content.js] Translation failed:', err);
+  }
+}
+
+// Listen for translatePage messages from the popup
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg.type === 'translatePage') {
+    translatePage(msg.targetLang);
+    sendResponse({ status: 'started' });
   }
 });
