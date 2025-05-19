@@ -322,4 +322,57 @@ body.light .main-textarea {
     gap: 10px;
     position: relative;
   }
+
+  select.provider-select {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 14px;
+    background-color: #3c3c3c;
+    color: #ffffff;
+    border: none;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
   
+  body.light select.provider-select {
+    background-color: #ddd;
+    color: #000;
+  }
+
+  /* === Dual Translation Display === */
+.translated-dual {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 6px;
+  border-radius: 6px;
+  margin: 0 2px;
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
+
+.original-text {
+  color: #bbbbbb;
+  font-size: 0.9em;
+  display: block;
+}
+
+.translated-text {
+  color: #ffffff;
+  font-weight: bold;
+  white-space: pre-wrap;
+}
+
+body.light .translated-dual {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+body.light .original-text {
+  color: #444;
+}
+
+body.light .translated-text {
+  color: #000;
+}

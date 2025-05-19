@@ -1,5 +1,4 @@
 // main.js
-
 console.log("main.js is loaded");
 
 // Initialize Firebase using CDN
@@ -50,19 +49,6 @@ document.getElementById('show-login')?.addEventListener('click', () => {
 // --- UPDATE: Use deployed server, not localhost ---
 const BACKEND_URL = 'https://parallel-llm-translator.onrender.com/translate';
 
-// Helper function to get the associated toggle button for a given dropdown list.
-function getToggleButtonForDropdown(dropdown) {
-  // Assume the toggle button is the immediate previous sibling.
-  let toggleBtn = dropdown.previousElementSibling;
-  if (!toggleBtn || !toggleBtn.classList.contains('dropdown-btn')) {
-    const dropdownId = dropdown.getAttribute('id');
-    if (dropdownId) {
-      toggleBtn = document.querySelector(`[data-dropdown="${dropdownId}"]`);
-    }
-  }
-  return toggleBtn;
-}
-
 // Create dropdown for language selection
 const createDropdown = (id, label, initialItems, filterFn = () => true) => {
   const container = document.getElementById(id);
@@ -75,7 +61,7 @@ const createDropdown = (id, label, initialItems, filterFn = () => true) => {
   list.setAttribute('id', id + '-list');
 
   // Filter out sourceOnly items if requested (e.g., for target-dropdown)
-  let items = initialItems.filter(filterFn);
+  const items = initialItems.filter(filterFn);
 
   // Restore favorites and last selected from local storage
   chrome.storage.local.get(['favorites', 'sourceLang', 'targetLang'], (data) => {
@@ -83,13 +69,13 @@ const createDropdown = (id, label, initialItems, filterFn = () => true) => {
     const lastSelected = data[key];
 
     // Reapply saved favorites
-    if (data.favorites && Array.isArray(data.favorites)) {
+    if (Array.isArray(data.favorites)) {
       items.forEach(item => {
         item.favorited = data.favorites.includes(item.label);
       });
     }
 
-    // Sorting with favorites on top (already in your original logic)
+    // Sorting with favorites on top
     const renderList = () => {
       list.innerHTML = '';
       const sortedItems = [...items].sort((a, b) => b.favorited - a.favorited);
@@ -138,9 +124,9 @@ const createDropdown = (id, label, initialItems, filterFn = () => true) => {
 
   // Close dropdown on outside click
   document.addEventListener('click', (event) => {
-    const dropdown = document.querySelector('.dropdown-list.open');
-    if (dropdown && !dropdown.contains(event.target)) {
-      dropdown.classList.remove('open');
+    const openList = document.querySelector('.dropdown-list.open');
+    if (openList && !openList.contains(event.target)) {
+      openList.classList.remove('open');
     }
   });
 
@@ -157,19 +143,21 @@ const languages = [
   { label: 'Chinese', favorited: false },
 ];
 
+// Helper to read current selection
 function getSelectedLanguageFromDropdown(dropdownId) {
   const dropdown = document.getElementById(dropdownId);
   const btn = dropdown?.querySelector('.dropdown-btn');
   return btn ? btn.innerText.trim() : null;
 }
 
-function applySelectTheme(providerSelect) {
+// Apply theme colors to <select> and dropdown-btns
+function applySelectTheme(el) {
   if (document.body.classList.contains('light')) {
-    providerSelect.style.backgroundColor = '#ddd';
-    providerSelect.style.color = '#000';
+    el.style.backgroundColor = '#ddd';
+    el.style.color = '#000';
   } else {
-    providerSelect.style.backgroundColor = '#3c3c3c';
-    providerSelect.style.color = '#fff';
+    el.style.backgroundColor = '#3c3c3c';
+    el.style.color = '#fff';
   }
 }
 
@@ -178,78 +166,80 @@ document.addEventListener('DOMContentLoaded', () => {
   createDropdown('source-dropdown', 'Select Language', languages);
   createDropdown('target-dropdown', 'Select Language', languages, item => !item.sourceOnly);
 
+  // Handle Translation Display Mode
+  const displayModeSelect = document.getElementById('display-mode');
+  if (displayModeSelect) {
+    // Load saved mode
+    chrome.storage.local.get(['displayMode'], (data) => {
+      if (data.displayMode) displayModeSelect.value = data.displayMode;
+    });
+
+    // Save on change
+    displayModeSelect.addEventListener('change', () => {
+      chrome.storage.local.set({ displayMode: displayModeSelect.value });
+    });
+
+    applySelectTheme(displayModeSelect);
+  }
+
   // Settings UI toggle
-  const settingsBtn = document.querySelector('.settings-btn');
-  const translatorUI = document.getElementById('translator-ui');
-  const settingsUI = document.getElementById('settings-ui');
-  const backBtn = document.getElementById('back-btn');
+  const settingsBtn    = document.querySelector('.settings-btn');
+  const translatorUI   = document.getElementById('translator-ui');
+  const settingsUI     = document.getElementById('settings-ui');
+  const backBtn        = document.getElementById('back-btn');
 
   if (settingsBtn && translatorUI && settingsUI) {
     const switchView = (view) => {
       if (view === 'settings') {
         translatorUI.style.display = 'none';
-        settingsUI.style.display = 'block';
+        settingsUI.style.display   = 'block';
       } else {
-        settingsUI.style.display = 'none';
+        settingsUI.style.display   = 'none';
         translatorUI.style.display = 'block';
       }
     };
-
-    settingsBtn.addEventListener('click', () => {
-      switchView('settings');
-    });
-
-    backBtn?.addEventListener('click', () => {
-      switchView('translator');
-    });
+    settingsBtn.addEventListener('click', () => switchView('settings'));
+    backBtn?.addEventListener('click', () => switchView('translator'));
   }
 
-  // Dark mode toggle. 다크모드 토글
+  // Dark mode toggle
   const darkToggle = document.getElementById('dark-toggle');
-  const providerSelect = document.getElementById('provider');
-
   const syncThemeWithToggle = () => {
     document.body.classList.toggle('light', !darkToggle.checked);
-    applySelectTheme(providerSelect);
-    console.log("darkToggle:", darkToggle);
+    if (displayModeSelect) applySelectTheme(displayModeSelect);
   };
-
   darkToggle.addEventListener('change', (e) => {
-    console.log("[DEBUG] Toggle changed:", e.target.checked);
     document.body.classList.toggle('light', !e.target.checked);
-    applySelectTheme(providerSelect);
+    if (displayModeSelect) applySelectTheme(displayModeSelect);
   });
-
-  // Dark mode default 기본 다크모드
   darkToggle.checked = true;
   syncThemeWithToggle();
 
-  // main behavior (show/hide translator)
-  const main = document.querySelector('.main-translator');
-  const closeBtn = document.querySelector('.main-close');
+  // Main translator show/hide (Ctrl+B)
+  const main       = document.querySelector('.main-translator');
+  const closeBtn   = document.querySelector('.main-close');
   const translateBtn = document.getElementById('translate-btn');
-  console.log("[DEBUG] Translate button element:", translateBtn);  // DEBUG line
 
   document.addEventListener('keydown', e => {
     if (e.ctrlKey && e.key === 'b') {
       main.style.display = main.style.display === 'none' ? 'flex' : 'none';
     }
   });
+  closeBtn?.addEventListener('click', () => main.style.display = 'none');
 
-  closeBtn?.addEventListener('click', () => {
-    main.style.display = 'none';
-  });
-
-  // 🔁 NEW: Full Page Translation — send message to content script
+  // Full Page Translation — send message to content script
   translateBtn?.addEventListener('click', () => {
     const targetLang = getSelectedLanguageFromDropdown('target-dropdown') || 'Korean';
-    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-      if (!tabs[0]?.id) return;
-      chrome.tabs.sendMessage(
-        tabs[0].id,
-        { type: 'translatePage', targetLang },
-        resp => console.log('Content script replied:', resp)
-      );
+    chrome.storage.local.get(['displayMode'], (data) => {
+      const mode = data.displayMode || 'replace';
+      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+        if (!tabs[0]?.id) return;
+        chrome.tabs.sendMessage(
+          tabs[0].id,
+          { type: 'translatePage', targetLang, mode },
+          resp => console.log('Content script replied:', resp)
+        );
+      });
     });
   });
 });

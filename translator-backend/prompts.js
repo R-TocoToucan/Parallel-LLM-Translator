@@ -1,36 +1,54 @@
+// prompts.js
 export const PROMPTS = {
-    translate_webpage: (text, targetLang) => `
-    Translate the text under """""" into ${targetLang}, preserving the tone, style, and context of the original text as it appears on a webpage. Ensure the translation is natural, accurate, and suitable for direct insertion below the original text. Provide only the translated text as output, without additional explanations or formatting. Output must be in ${targetLang}.
-    
-    """
-    ${text}
-    """`,
-  
-    explain_phrase: (text, lang) => `
-    Explain the meaning and usage of the text under """""". Provide a simple definition, relevant usage notes, and one or two example sentences. Keep it concise and helpful for language learners. Output must be in ${lang}. Provide only the explanation as output, without additional formatting or commentary.
-    
-    """
-    ${text}
-    """`,
+  // For popup/selected‐text translation
+  translate: (text, targetLang) => `
+Translate the following text into ${targetLang}, preserving tone and style.
+Output only the translated text—no explanations or commentary.
 
-  // 텍스트를 문법과 표현을 다듬어 개선합니다. (원본 언어 유지)
-    enhance_text: (text) => `
-    Improve the text under """""", correcting grammar, refining word choice, and enhancing clarity and fluency.
-    Follow the original language of the input text.
-    Provide only the improved version as output, without any explanations or formatting.
+${text}
+  `,
 
-    """
-    ${text}
-    """`,
+  // For full‐page (ID‐wrapped) translation
+  translate_webpage: (ids, texts, targetLang) => `
+You will receive a JSON object with two arrays: "ids" (unique numeric IDs) and "texts" (the strings to translate).
 
-  
-    summarize_webpage: (text, lang) => `
-    Extract and summarize only the meaningful content from the webpage text under """""". Focus on the main article/post and key comments or replies if available. Ignore HTML tags, navigation bars, advertisements, footers, scripts, and any other irrelevant page elements. Summarize in a clear, concise, and natural way, capturing the core ideas and tone of the original content. Output only the summary text, with no extra formatting or explanations. Output must be in ${lang}.
-    
-    """
-    ${text}
-    """`,
-    };
-  
-  export const SYSTEM_MESSAGE =
-    "You are a professional translator and language assistant trained to output only the requested transformation, with no extra commentary or markdown.";
+Translate each element of "texts" into ${targetLang}, preserving tone, style, and natural flow.
+Do NOT modify, remove, or reorder the "ids" array.
+
+Respond with valid JSON only, exactly this format (no code fences, no extra commentary):
+{
+  "ids": [${ids.join(",")}],
+  "outputs": [
+    /* translated strings in the same order */
+  ]
+}
+
+Here is the input:
+${JSON.stringify({ ids, texts }, null, 2)}
+  `,
+
+  explain_phrase: (text, lang) => `
+Explain the meaning and usage of the following phrase for a language learner:
+– Give a simple definition  
+– Provide one usage note if needed  
+– Give one or two example sentences  
+Output only the explanation in ${lang}, no extra formatting.
+
+${text}
+  `,
+
+  enhance_text: (text) => `
+Improve the following text by correcting grammar, refining word choice, and enhancing clarity and fluency.
+Return only the improved version, without explanations or formatting.
+
+${text}
+  `,
+
+  summarize_webpage: (text, lang) => `
+Summarize the main content of the following webpage in ${lang}.
+Focus on the article or post and key replies; ignore HTML, ads, navigation, and unrelated content.
+Output a clear, concise summary without extra formatting.
+
+${text}
+  `,
+};

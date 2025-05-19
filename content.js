@@ -1,10 +1,9 @@
 // content.js
 
-let popupInjected = false;
-let popupVisible = false; // 팝업 표시 여부 관리
-let outsideClickListener = null; // Listener for outside click to close popup 외부 클릭시 닫기
+let popupVisible = false;
+let outsideClickListener = null;
 
-// Get the currently selected text and its coordinates 현제 좌표 구하기
+// Get selected text and its coordinates
 function getSelectedTextAndCoords() {
   const selection = window.getSelection();
   const selectedText = selection.toString().trim();
@@ -15,7 +14,7 @@ function getSelectedTextAndCoords() {
     const rect = range.getBoundingClientRect();
     if (rect.width > 0 && rect.height > 0) {
       coords = {
-        top: rect.top + window.scrollY + 20, // 약간 아래로 오프셋
+        top: rect.top + window.scrollY + 20,
         left: rect.left + window.scrollX
       };
     }
@@ -24,48 +23,44 @@ function getSelectedTextAndCoords() {
   return { selectedText, coords };
 }
 
-// Create the popup root div and position it 팝업창 위치 설정
+// Create popup root
 function createPopupRoot(coords) {
   const root = document.createElement("div");
   root.id = "parallel-translator-root";
 
   if (coords) {
     root.style.position = "absolute";
-    root.style.top = coords.top + "px";
-    root.style.left = coords.left + "px";
+    root.style.top      = coords.top + "px";
+    root.style.left     = coords.left + "px";
   } else {
-    // Default position 좌표가 없으면 기본적으로 오른쪽 아래로
     root.style.position = "fixed";
-    root.style.bottom = "20px";
-    root.style.right = "20px";
+    root.style.bottom   = "20px";
+    root.style.right    = "20px";
   }
 
   root.style.zIndex = "999999";
   document.body.appendChild(root);
-
   return root.attachShadow({ mode: "open" });
 }
 
-// Move popup to new coordinates or fallback to bottom-right 좌표 이동 또는 기본 위치 설정
 function movePopupTo(root, coords) {
   if (coords) {
     root.style.position = "absolute";
-    root.style.top = coords.top + "px"; // 새 선택 위치로 이동
-    root.style.left = coords.left + "px"; // 새 선택 위치로 이동
-    root.style.bottom = "";
-    root.style.right = "";
+    root.style.top      = coords.top + "px";
+    root.style.left     = coords.left + "px";
+    root.style.bottom   = "";
+    root.style.right    = "";
   } else {
     root.style.position = "fixed";
-    root.style.top = "";
-    root.style.left = "";
-    root.style.bottom = "20px";
-    root.style.right = "20px";
+    root.style.top      = "";
+    root.style.left     = "";
+    root.style.bottom   = "20px";
+    root.style.right    = "20px";
   }
 }
 
-// Detect clicks outside the popup and hide it
 function enableOutsideClickToClose(root) {
-  outsideClickListener = (event) => {
+  outsideClickListener = event => {
     if (!root.contains(event.target)) {
       root.style.display = "none";
       popupVisible = false;
@@ -76,16 +71,15 @@ function enableOutsideClickToClose(root) {
   document.addEventListener("mousedown", outsideClickListener);
 }
 
-// Load popup HTML, CSS, and JS into the shadow DOM
 async function loadPopupContent(shadow, selectedText) {
-  const htmlURL = chrome.runtime.getURL("popup.html");
-  const htmlText = await fetch(htmlURL).then((res) => res.text());
-  const wrapper = document.createElement("div");
+  const htmlURL  = chrome.runtime.getURL("popup.html");
+  const htmlText = await fetch(htmlURL).then(r => r.text());
+  const wrapper  = document.createElement("div");
   wrapper.innerHTML = htmlText;
   shadow.appendChild(wrapper);
 
   const style = document.createElement("link");
-  style.rel = "stylesheet";
+  style.rel  = "stylesheet";
   style.href = chrome.runtime.getURL("popup_style.css");
   shadow.appendChild(style);
 
@@ -94,129 +88,186 @@ async function loadPopupContent(shadow, selectedText) {
   popupModule.initializePopup(shadow, selectedText);
 }
 
-// Update existing popup textareas if popup already exists
 function updatePopupText(shadow, selectedText) {
-  const allTextareas = shadow.querySelectorAll(".original-textarea");
-  allTextareas.forEach((ta) => {
+  shadow.querySelectorAll(".original-textarea").forEach(ta => {
     ta.value = selectedText;
   });
 }
 
-// Main trigger - listen for Ctrl+B
-document.addEventListener("keydown", async (e) => {
+document.addEventListener("keydown", async e => {
   if (e.ctrlKey && e.key.toLowerCase() === "b") {
-    // Capture the highlighted text from the page
     const { selectedText, coords } = getSelectedTextAndCoords();
-    console.log("Selected text:", selectedText);
-
-    // Create Popup 선택한 텍스트 위치에 팝업창 생성
     let root = document.getElementById("parallel-translator-root");
+
     if (!root) {
       const shadow = createPopupRoot(coords);
       await loadPopupContent(shadow, selectedText);
-      popupVisible = true; // 새로 만들었으므로 표시 상태로 설정
+      popupVisible = true;
     } else {
       const shadow = root.shadowRoot;
       if (popupVisible) {
-        // 팝업이 열려있으면 닫기
         root.style.display = "none";
         popupVisible = false;
       } else {
-        // 팝업이 닫혀있으면 새 좌표로 이동 후 열기
         movePopupTo(root, coords);
         root.style.display = "block";
         popupVisible = true;
         updatePopupText(shadow, selectedText);
       }
     }
-    // Close on outside click
+
     if (popupVisible) enableOutsideClickToClose(root);
   }
 });
 
+// Revert page to original by unwrapping our wrappers
+function revertPageTranslation() {
+  const wrappers = document.querySelectorAll(".parallel-translator-text-wrapper");
+  wrappers.forEach(wrapper => {
+    const original = wrapper.dataset.originalText;
+    if (original == null) return;
+    const parent = wrapper.parentNode;
 
-// --- Full-page translation logic moved into content.js ---
-async function translatePage(targetLang = 'en') {
-  const texts = [];
-  const nodes = [];
+    if (wrapper.dataset.translated === "dual") {
+      const sib = wrapper.nextSibling;
+      if (sib && sib.classList && sib.classList.contains("parallel-translator-translated-wrapper")) {
+        parent.removeChild(sib);
+      }
+    }
 
+    parent.replaceChild(document.createTextNode(original), wrapper);
+  });
+  console.log("[content.js] Reverted to original text.");
+}
+
+// Optimized per-node batch translation via /translate_webpage
+async function translatePage(targetLang = "auto", mode = "replace") {
+  observer.disconnect();
+  revertPageTranslation();
+
+  // 1) Collect all text nodes first
+  const textNodes = [];
   const walker = document.createTreeWalker(
     document.body,
     NodeFilter.SHOW_TEXT,
     {
-      acceptNode: (node) => {
-        const trimmed = node.nodeValue.trim();
-        if (!trimmed) return NodeFilter.FILTER_REJECT;
+      acceptNode: node => {
+        const txt = node.nodeValue.trim();
+        if (!txt) return NodeFilter.FILTER_REJECT;
+
         const p = node.parentNode;
-        if (
-          p.nodeName === 'SCRIPT' ||
-          p.nodeName === 'STYLE'  ||
-          p.nodeName === 'TEXTAREA' ||
-          p.nodeName === 'INPUT' ||
-          p.nodeName === 'BUTTON' ||
-          p.isContentEditable
-        ) return NodeFilter.FILTER_REJECT;
+        if (!p) return NodeFilter.FILTER_REJECT;
+        const style = window.getComputedStyle(p);
+        if (style.display === "none" || style.visibility === "hidden") {
+          return NodeFilter.FILTER_REJECT;
+        }
+
+        // Skip unwanted containers
+        if (p.closest("script,style,textarea,input,button,nav,header,footer,aside,form,select,option")) {
+          return NodeFilter.FILTER_REJECT;
+        }
+
+        if (p.isContentEditable) {
+          return NodeFilter.FILTER_REJECT;
+        }
+
+        // Skip nodes we already wrapped
+        if (p.classList && p.classList.contains("parallel-translator-text-wrapper")) {
+          return NodeFilter.FILTER_REJECT;
+        }
+
         return NodeFilter.FILTER_ACCEPT;
       }
     }
   );
 
-  let n;
-  while (n = walker.nextNode()) {
-    texts.push(n.nodeValue);
-    nodes.push(n);
+  let node;
+  while ((node = walker.nextNode())) {
+    textNodes.push(node);
   }
-
-  if (texts.length === 0) {
-    console.log("[content.js] No text to translate.");
+  if (!textNodes.length) {
+    console.log("[content.js] No new text to translate.");
+    observer.observe(document.body, { childList: true, subtree: true });
     return;
   }
 
-  console.log(`[content.js] Translating ${texts.length} nodes…`);
+  // 2) Wrap each text node and assign an ID
+  const wrappers = textNodes.map((tn, i) => {
+    const span = document.createElement("span");
+    span.className = "parallel-translator-text-wrapper";
+    span.dataset.ttId         = i;
+    span.dataset.originalText = tn.nodeValue;
+    span.textContent          = tn.nodeValue;
+    tn.parentNode.replaceChild(span, tn);
+    return span;
+  });
+
+  // 3) Build arrays of ids and texts
+  const ids   = wrappers.map(w => Number(w.dataset.ttId));
+  const texts = wrappers.map(w => w.textContent);
+
+  // 4) Send one POST to /translate_webpage
+  let json;
   try {
-    // Build a single-string payload
-    const payload = {
-      text: texts.join("\n\n"),
-      language: targetLang,
-      tier: 'free'
-    };
-
-    const res = await fetch(
-      'https://parallel-llm-translator.onrender.com/translate',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }
-    );
-
-    if (!res.ok) {
-      console.error(`[content.js] Translate API returned HTTP ${res.status}`);
-      return;
-    }
-
-    const json = await res.json();
-    const translatedFull = json.result || json.translations || json.translation || "";
-    const splits = translatedFull
-    .split("\n\n")
-    .map(s => s.trim())
-    .filter(s => s.length > 0);
-  
-    // Reassign back to original text nodes
-    splits.forEach((t, i) => {
-      if (nodes[i]) nodes[i].nodeValue = t;
+    const resp = await fetch("https://parallel-llm-translator.onrender.com/translate_webpage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids, texts, language: targetLang, tier: "free" })
     });
-
-    console.log('[✅ content.js] Page translation complete.');
+    if (!resp.ok) throw await resp.json();
+    json = await resp.json();  // { translations: [...] }
   } catch (err) {
-    console.error('[❌ content.js] Translation failed:', err);
+    console.error("[⚠️ content.js] Translate API error:", err);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return;
   }
+
+  // 5) Map translations back into each wrapper
+  const { translations } = json;
+  wrappers.forEach((span, i) => {
+    const t = translations[i] != null ? translations[i] : span.dataset.originalText;
+    if (mode === "dual") {
+      span.dataset.translated = "dual";
+      const tspan = document.createElement("span");
+      tspan.className = "parallel-translator-translated-wrapper";
+      tspan.textContent = t;
+      span.after(document.createElement("br"), tspan);
+    } else {
+      span.dataset.translated = "true";
+      span.textContent = t;
+    }
+  });
+
+  console.log(`[content.js] Translation (${mode}) complete: ${wrappers.length} nodes.`);
+  observer.observe(document.body, { childList: true, subtree: true });
 }
 
-// Listen for translatePage messages from the popup
+// MutationObserver with debounce
+let observerTimeout = null;
+const observer = new MutationObserver(() => {
+  if (observerTimeout) clearTimeout(observerTimeout);
+  observerTimeout = setTimeout(() => {
+    chrome.storage.local.get(["targetLang","displayMode"], data => {
+      translatePage(data.targetLang || "en", data.displayMode || "replace");
+    });
+  }, 1000);
+});
+
+function enableDynamicTranslation() {
+  observer.observe(document.body, { childList: true, subtree: true });
+}
+
+// Manual translate via popup message
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  if (msg.type === 'translatePage') {
-    translatePage(msg.targetLang);
-    sendResponse({ status: 'started' });
+  if (msg.type === "translatePage") {
+    translatePage(msg.targetLang, msg.mode);
+    sendResponse({ status: "started" });
+  }
+});
+
+// Ctrl+Shift+Z to revert manually
+document.addEventListener("keydown", e => {
+  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "z") {
+    revertPageTranslation();
   }
 });
