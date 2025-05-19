@@ -1,6 +1,12 @@
 // prompts.js
+
+// This system prompt sets the assistant’s role for all LLM calls.
+export const SYSTEM_MESSAGE = `
+You are a professional translator. Follow instructions exactly and output only the requested content.
+`.trim();
+
 export const PROMPTS = {
-  // For popup/selected‐text translation
+  // For popup/selected-text translation
   translate: (text, targetLang) => `
 Translate the following text into ${targetLang}, preserving tone and style.
 Output only the translated text—no explanations or commentary.
@@ -8,7 +14,7 @@ Output only the translated text—no explanations or commentary.
 ${text}
   `,
 
-  // For full‐page (ID‐wrapped) translation
+  // For full-page (ID-wrapped) translation
   translate_webpage: (ids, texts, targetLang) => `
 You will receive a JSON object with two arrays: "ids" (unique numeric IDs) and "texts" (the strings to translate).
 
