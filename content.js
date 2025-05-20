@@ -30,12 +30,12 @@ function createPopupRoot(coords) {
 
   if (coords) {
     root.style.position = "absolute";
-    root.style.top      = coords.top + "px";
-    root.style.left     = coords.left + "px";
+    root.style.top = coords.top + "px";
+    root.style.left = coords.left + "px";
   } else {
     root.style.position = "fixed";
-    root.style.bottom   = "20px";
-    root.style.right    = "20px";
+    root.style.bottom = "20px";
+    root.style.right = "20px";
   }
 
   root.style.zIndex = "999999";
@@ -46,16 +46,16 @@ function createPopupRoot(coords) {
 function movePopupTo(root, coords) {
   if (coords) {
     root.style.position = "absolute";
-    root.style.top      = coords.top + "px";
-    root.style.left     = coords.left + "px";
-    root.style.bottom   = "";
-    root.style.right    = "";
+    root.style.top = coords.top + "px";
+    root.style.left = coords.left + "px";
+    root.style.bottom = "";
+    root.style.right = "";
   } else {
     root.style.position = "fixed";
-    root.style.top      = "";
-    root.style.left     = "";
-    root.style.bottom   = "20px";
-    root.style.right    = "20px";
+    root.style.top = "";
+    root.style.left = "";
+    root.style.bottom = "20px";
+    root.style.right = "20px";
   }
 }
 
@@ -72,14 +72,14 @@ function enableOutsideClickToClose(root) {
 }
 
 async function loadPopupContent(shadow, selectedText) {
-  const htmlURL  = chrome.runtime.getURL("popup.html");
-  const htmlText = await fetch(htmlURL).then(r => r.text());
-  const wrapper  = document.createElement("div");
+  const htmlURL = chrome.runtime.getURL("popup.html");
+  const htmlText = await fetch(htmlURL).then(res => res.text());
+  const wrapper = document.createElement("div");
   wrapper.innerHTML = htmlText;
   shadow.appendChild(wrapper);
 
   const style = document.createElement("link");
-  style.rel  = "stylesheet";
+  style.rel = "stylesheet";
   style.href = chrome.runtime.getURL("popup_style.css");
   shadow.appendChild(style);
 
@@ -89,7 +89,8 @@ async function loadPopupContent(shadow, selectedText) {
 }
 
 function updatePopupText(shadow, selectedText) {
-  shadow.querySelectorAll(".original-textarea").forEach(ta => {
+  const allTextareas = shadow.querySelectorAll(".original-textarea");
+  allTextareas.forEach(ta => {
     ta.value = selectedText;
   });
 }
@@ -116,66 +117,64 @@ document.addEventListener("keydown", async e => {
       }
     }
 
-    if (popupVisible) enableOutsideClickToClose(root);
+    if (popupVisible) {
+      enableOutsideClickToClose(root);
+    }
   }
 });
 
-// Revert page to original by unwrapping our wrappers
+// Revert page to original
 function revertPageTranslation() {
-  const wrappers = document.querySelectorAll(".parallel-translator-text-wrapper");
-  wrappers.forEach(wrapper => {
-    const original = wrapper.dataset.originalText;
-    if (original == null) return;
-    const parent = wrapper.parentNode;
+  const translatedEls = document.querySelectorAll('[data-translated="true"]');
+  translatedEls.forEach(el => {
+    const original = el.dataset.originalText;
+    if (!original) return;
 
-    if (wrapper.dataset.translated === "dual") {
-      const sib = wrapper.nextSibling;
-      if (sib && sib.classList && sib.classList.contains("parallel-translator-translated-wrapper")) {
-        parent.removeChild(sib);
-      }
+    if (el.classList.contains("translated-dual")) {
+      el.replaceWith(document.createTextNode(original));
+    } else if (el.firstChild && el.firstChild.nodeType === Node.TEXT_NODE) {
+      el.firstChild.nodeValue = original;
+      delete el.dataset.translated;
+      delete el.dataset.originalText;
     }
-
-    parent.replaceChild(document.createTextNode(original), wrapper);
   });
-  console.log("[content.js] Reverted to original text.");
+
+  console.log("content.js reverted to original text.");
 }
 
-// Optimized per-node batch translation via /translate_webpage
+// Full-page translation (manual button click)
 async function translatePage(targetLang = "auto", mode = "replace") {
   observer.disconnect();
   revertPageTranslation();
 
-  // 1) Collect all text nodes first
-  const textNodes = [];
+  const texts = [];
+  const nodes = [];
   const walker = document.createTreeWalker(
     document.body,
     NodeFilter.SHOW_TEXT,
     {
       acceptNode: node => {
-        const txt = node.nodeValue.trim();
-        if (!txt) return NodeFilter.FILTER_REJECT;
+        const trimmed = node.nodeValue.trim();
+        if (!trimmed) return NodeFilter.FILTER_REJECT;
 
         const p = node.parentNode;
-        if (!p) return NodeFilter.FILTER_REJECT;
-        const style = window.getComputedStyle(p);
-        if (style.display === "none" || style.visibility === "hidden") {
+        if (
+          !p ||
+          p.nodeName === "SCRIPT" ||
+          p.nodeName === "STYLE" ||
+          p.nodeName === "TEXTAREA" ||
+          p.nodeName === "INPUT" ||
+          p.nodeName === "BUTTON" ||
+          p.isContentEditable ||
+          window.getComputedStyle(p).display === "none" ||
+          window.getComputedStyle(p).visibility === "hidden"
+        ) {
           return NodeFilter.FILTER_REJECT;
         }
 
-        // Skip unwanted containers
-        if (p.closest("script,style,textarea,input,button,nav,header,footer,aside,form,select,option")) {
+        if (p.closest('[data-translated="true"], .parallel-translator-text-wrapper')) {
           return NodeFilter.FILTER_REJECT;
         }
-
-        if (p.isContentEditable) {
-          return NodeFilter.FILTER_REJECT;
-        }
-
-        // Skip nodes we already wrapped
-        if (p.classList && p.classList.contains("parallel-translator-text-wrapper")) {
-          return NodeFilter.FILTER_REJECT;
-        }
-
         return NodeFilter.FILTER_ACCEPT;
       }
     }
@@ -183,63 +182,153 @@ async function translatePage(targetLang = "auto", mode = "replace") {
 
   let node;
   while ((node = walker.nextNode())) {
-    textNodes.push(node);
+    texts.push(node.nodeValue);
+    nodes.push(node);
   }
-  if (!textNodes.length) {
-    console.log("[content.js] No new text to translate.");
+
+  if (!nodes.length) {
+    console.log("content.js: No new text to translate.");
     observer.observe(document.body, { childList: true, subtree: true });
     return;
   }
 
-  // 2) Wrap each text node and assign an ID
-  const wrappers = textNodes.map((tn, i) => {
-    const span = document.createElement("span");
-    span.className = "parallel-translator-text-wrapper";
-    span.dataset.ttId         = i;
-    span.dataset.originalText = tn.nodeValue;
-    span.textContent          = tn.nodeValue;
-    tn.parentNode.replaceChild(span, tn);
-    return span;
+  const BATCH_SIZE = 20;
+  const batches = [];
+  for (let i = 0; i < texts.length; i += BATCH_SIZE) {
+    batches.push({
+      texts: texts.slice(i, i + BATCH_SIZE),
+      nodes: nodes.slice(i, i + BATCH_SIZE)
+    });
+  }
+
+  try {
+    await Promise.all(
+      batches.map(batch => translateBatch(batch, targetLang, mode))
+    );
+    console.log(`content.js translation (${mode}) complete: ${nodes.length} nodes.`);
+  } catch (err) {
+    console.error("content.js translation error:", err);
+  } finally {
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+}
+
+// Incremental translation (auto on new content)
+async function translateIncremental(targetLang = "auto", mode = "replace") {
+  const newNodes = [];
+  const walker = document.createTreeWalker(
+    document.body,
+    NodeFilter.SHOW_TEXT,
+    {
+      acceptNode: node => {
+        if (!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+        // skip already translated
+        if (node.parentNode.closest('[data-translated="true"], .parallel-translator-text-wrapper')) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        const p = node.parentNode;
+        if (!p || p.isContentEditable) return NodeFilter.FILTER_REJECT;
+        const style = window.getComputedStyle(p);
+        if (style.display === 'none' || style.visibility === 'hidden') {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    }
+  );
+
+  let node;
+  while ((node = walker.nextNode())) {
+    newNodes.push(node);
+  }
+  if (!newNodes.length) return;
+
+  const texts = newNodes.map(n => n.nodeValue);
+  const batches = [];
+  const BATCH_SIZE = 20;
+  for (let i = 0; i < texts.length; i += BATCH_SIZE) {
+    batches.push({
+      texts: texts.slice(i, i + BATCH_SIZE),
+      nodes: newNodes.slice(i, i + BATCH_SIZE)
+    });
+  }
+
+  try {
+    await Promise.all(batches.map(batch => translateBatch(batch, targetLang, mode)));
+  } catch (err) {
+    console.error("content.js incremental translation error:", err);
+  }
+}
+
+// Helper to translate a single batch
+async function translateBatch({ texts: batchTexts, nodes: batchNodes }, targetLang, mode) {
+  const ids = batchNodes.map((_, i) => i);
+
+  const res = await fetch("https://parallel-llm-translator.onrender.com/translate_webpage", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ids,
+      texts: batchTexts,
+      language: targetLang
+    })
   });
 
-  // 3) Build arrays of ids and texts
-  const ids   = wrappers.map(w => Number(w.dataset.ttId));
-  const texts = wrappers.map(w => w.textContent);
-
-  // 4) Send one POST to /translate_webpage
-  let json;
-  try {
-    const resp = await fetch("https://parallel-llm-translator.onrender.com/translate_webpage", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids, texts, language: targetLang, tier: "free" })
-    });
-    if (!resp.ok) throw await resp.json();
-    json = await resp.json();  // { translations: [...] }
-  } catch (err) {
-    console.error("[⚠️ content.js] Translate API error:", err);
-    observer.observe(document.body, { childList: true, subtree: true });
-    return;
+  if (!res.ok) {
+    const errJson = await res.json().catch(() => ({}));
+    console.error("content.js 400 from translate endpoint:", errJson.error || errJson);
+    throw new Error("Bad Request from translation API");
   }
 
-  // 5) Map translations back into each wrapper
-  const { translations } = json;
-  wrappers.forEach((span, i) => {
-    const t = translations[i] != null ? translations[i] : span.dataset.originalText;
+  const json = await res.json();
+  let translations;
+  if (Array.isArray(json.translations)) {
+    translations = json.translations;
+  } else {
+    const raw =
+      (typeof json.result === "string" ? json.result
+        : typeof json.translation === "string" ? json.translation
+        : "")
+      .replace(/^"+|"+$/g, "");
+
+    let cleaned = raw.split("\n\n").map(s => s.trim());
+    while (cleaned.length < batchTexts.length) cleaned.push("");
+    if (cleaned.length > batchTexts.length) cleaned.length = batchTexts.length;
+
+    translations = batchNodes.map((node, i) =>
+      cleaned[i] !== "" ? cleaned[i] : node.nodeValue
+    );
+  }
+
+  translations.forEach((translated, i) => {
+    const node = batchNodes[i];
+    const parent = node.parentNode;
+    if (!parent) return;
+
     if (mode === "dual") {
-      span.dataset.translated = "dual";
-      const tspan = document.createElement("span");
-      tspan.className = "parallel-translator-translated-wrapper";
-      tspan.textContent = t;
-      span.after(document.createElement("br"), tspan);
+      const wrapper = document.createElement("span");
+      wrapper.className = "translated-dual";
+      wrapper.dataset.originalText = node.nodeValue;
+      wrapper.dataset.translated = "true";
+
+      const original = document.createElement("span");
+      original.className = "original-text";
+      original.textContent = node.nodeValue;
+
+      const tSpan = document.createElement("span");
+      tSpan.className = "translated-text";
+      tSpan.textContent = translated;
+
+      wrapper.appendChild(original);
+      wrapper.appendChild(document.createElement("br"));
+      wrapper.appendChild(tSpan);
+      parent.replaceChild(wrapper, node);
     } else {
-      span.dataset.translated = "true";
-      span.textContent = t;
+      parent.dataset.originalText = node.nodeValue;
+      parent.dataset.translated = "true";
+      node.nodeValue = translated;
     }
   });
-
-  console.log(`[content.js] Translation (${mode}) complete: ${wrappers.length} nodes.`);
-  observer.observe(document.body, { childList: true, subtree: true });
 }
 
 // MutationObserver with debounce
@@ -247,15 +336,11 @@ let observerTimeout = null;
 const observer = new MutationObserver(() => {
   if (observerTimeout) clearTimeout(observerTimeout);
   observerTimeout = setTimeout(() => {
-    chrome.storage.local.get(["targetLang","displayMode"], data => {
-      translatePage(data.targetLang || "en", data.displayMode || "replace");
+    chrome.storage.local.get(["targetLang", "displayMode"], data => {
+      translateIncremental(data.targetLang || "en", data.displayMode || "replace");
     });
   }, 1000);
 });
-
-function enableDynamicTranslation() {
-  observer.observe(document.body, { childList: true, subtree: true });
-}
 
 // Manual translate via popup message
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {

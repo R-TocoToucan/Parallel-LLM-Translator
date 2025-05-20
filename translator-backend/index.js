@@ -98,7 +98,8 @@ app.post('/translate_webpage', async (req, res) => {
     console.error('Error calling OpenAI for /translate_webpage:', err);
     return res.status(500).json({ error: 'OpenAI request failed.' });
   }
-
+  // Log the raw LLM reply
+  console.log('RAW LLM reply:', reply);
   // Parse the JSON the LLM returned
   let parsed;
   try {
