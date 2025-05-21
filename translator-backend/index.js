@@ -1,4 +1,5 @@
 // index.js
+
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -40,7 +41,7 @@ async function callOpenAI({ system, user, model }) {
 function createLLMRoute(path, promptBuilder) {
   app.post(path, async (req, res) => {
     const { text, language, tier = 'free' } = req.body;
-    console.log(`[ ${path.toUpperCase()}]`, { text, language, tier });
+    console.log(`[${path.toUpperCase()}]`, { textLength: text?.length, language, tier });
 
     if (typeof text !== "string" || !text || typeof language !== "string" || !language) {
       return res.status(400).json({ error: 'Invalid input types.' });
@@ -62,31 +63,37 @@ function createLLMRoute(path, promptBuilder) {
 }
 
 // Generic routes
-createLLMRoute('/translate', PROMPTS.translate);
-createLLMRoute('/explain',   PROMPTS.explain_phrase);
-createLLMRoute('/enhance',   PROMPTS.enhance_text);
-createLLMRoute('/summarize', PROMPTS.summarize_webpage);
+createLLMRoute('/translate',   PROMPTS.translate);
+createLLMRoute('/explain',     PROMPTS.explain_phrase);
+createLLMRoute('/enhance',     PROMPTS.enhance_text);
+createLLMRoute('/summarize',   PROMPTS.summarize_webpage);
 
-// CUSTOM handler for full-page translation
+// Full-page translation route
 app.post('/translate_webpage', async (req, res) => {
   const { ids, texts, language, tier = 'free' } = req.body;
-  console.log(`[📥 TRANSLATE_WEBPAGE]`, { ids, texts, language, tier });
+  console.log('[TRANSLATE_WEBPAGE]', {
+    idsCount:   Array.isArray(ids)   ? ids.length   : null,
+    textsCount: Array.isArray(texts) ? texts.length : null,
+    language,
+    tier
+  });
 
-  // Validate inputs
   if (
-    !Array.isArray(ids)  ||
+    !Array.isArray(ids) ||
     !Array.isArray(texts) ||
     ids.length !== texts.length ||
     texts.some(t => typeof t !== 'string') ||
     typeof language !== 'string' ||
     !language
   ) {
-    return res.status(400).json({ error: 'Invalid input: expected { ids: number[], texts: string[], language: string }' });
+    return res.status(400).json({
+      error: 'Invalid input: expected { ids: number[], texts: string[], language: string }'
+    });
   }
 
-  // Build the ID-aware prompt
   const userPrompt = PROMPTS.translate_webpage(ids, texts, language);
 
+  // Call the LLM
   let reply;
   try {
     reply = await callOpenAI({
@@ -98,29 +105,46 @@ app.post('/translate_webpage', async (req, res) => {
     console.error('Error calling OpenAI for /translate_webpage:', err);
     return res.status(500).json({ error: 'OpenAI request failed.' });
   }
-  // Log the raw LLM reply
-  console.log('RAW LLM reply:', reply);
-  // Parse the JSON the LLM returned
+
+  // Extract and parse JSON
   let parsed;
   try {
     parsed = JSON.parse(reply);
   } catch (err) {
-    console.error('Failed to parse LLM JSON:', reply, err);
-    return res.status(500).json({ error: 'Invalid JSON from LLM.' });
+    const match = reply.match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        parsed = JSON.parse(match[0]);
+      } catch (e) {
+        console.error('Fallback JSON parse failed:', match[0], e);
+        return res.status(500).json({ error: 'Invalid JSON from LLM.' });
+      }
+    } else {
+      console.error('No JSON object found in LLM reply:', reply);
+      return res.status(500).json({ error: 'No JSON in LLM reply.' });
+    }
   }
 
-  const { ids: retIds, outputs } = parsed;
-  if (
-    !Array.isArray(retIds) ||
-    !Array.isArray(outputs) ||
-    retIds.length !== texts.length ||
-    outputs.length !== texts.length
-  ) {
-    console.error('LLM JSON shape mismatch:', parsed);
+  // Normalize outputs
+  const outputs = Array.isArray(parsed.outputs)
+    ? parsed.outputs
+    : Array.isArray(parsed.translations)
+      ? parsed.translations
+      : null;
+
+  if (!outputs) {
+    console.error('LLM JSON missing "outputs" or "translations":', parsed);
     return res.status(500).json({ error: 'LLM returned unexpected JSON structure.' });
   }
 
-  // Send back aligned translations
+  if (outputs.length !== texts.length) {
+    console.error(
+      'Length mismatch: expected', texts.length,
+      'got', outputs.length, 'parsed:', parsed
+    );
+    return res.status(500).json({ error: 'LLM returned wrong number of items.' });
+  }
+
   res.json({ translations: outputs });
 });
 
