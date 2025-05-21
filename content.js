@@ -152,33 +152,32 @@ async function translatePage(targetLang = "auto", mode = "replace") {
   const walker = document.createTreeWalker(
     document.body,
     NodeFilter.SHOW_TEXT,
-    {
-      acceptNode: node => {
-        const trimmed = node.nodeValue.trim();
-        if (!trimmed) return NodeFilter.FILTER_REJECT;
+  {
+    acceptNode: node => {
+      const txt = node.nodeValue.trim();
+      if (!txt) 
+        return NodeFilter.FILTER_REJECT;
 
-        const p = node.parentNode;
-        if (
-          !p ||
-          p.nodeName === "SCRIPT" ||
-          p.nodeName === "STYLE" ||
-          p.nodeName === "TEXTAREA" ||
-          p.nodeName === "INPUT" ||
-          p.nodeName === "BUTTON" ||
-          p.isContentEditable ||
-          window.getComputedStyle(p).display === "none" ||
-          window.getComputedStyle(p).visibility === "hidden"
-        ) {
-          return NodeFilter.FILTER_REJECT;
-        }
+      // skip purely numeric strings
+      if (/^[\d]+$/.test(txt)) 
+        return NodeFilter.FILTER_REJECT;
 
-        if (p.closest('[data-translated="true"], .parallel-translator-text-wrapper')) {
-          return NodeFilter.FILTER_REJECT;
-        }
-        return NodeFilter.FILTER_ACCEPT;
+      const p = node.parentNode;
+      if (
+        !p ||
+        ["SCRIPT","STYLE","TEXTAREA","INPUT","BUTTON"].includes(p.nodeName) ||
+        p.isContentEditable ||
+        window.getComputedStyle(p).display === "none" ||
+        window.getComputedStyle(p).visibility === "hidden" ||
+        p.closest('[data-translated="true"], .parallel-translator-text-wrapper')
+      ) {
+        return NodeFilter.FILTER_REJECT;
       }
+
+      return NodeFilter.FILTER_ACCEPT;
     }
-  );
+  }
+);
 
   let node;
   while ((node = walker.nextNode())) {
@@ -192,7 +191,7 @@ async function translatePage(targetLang = "auto", mode = "replace") {
     return;
   }
 
-  const BATCH_SIZE = 20;
+  const BATCH_SIZE = 10;
   const batches = [];
   for (let i = 0; i < texts.length; i += BATCH_SIZE) {
     batches.push({
@@ -245,7 +244,7 @@ async function translateIncremental(targetLang = "auto", mode = "replace") {
 
   const texts = newNodes.map(n => n.nodeValue);
   const batches = [];
-  const BATCH_SIZE = 20;
+  const BATCH_SIZE = 10;
   for (let i = 0; i < texts.length; i += BATCH_SIZE) {
     batches.push({
       texts: texts.slice(i, i + BATCH_SIZE),

@@ -15,22 +15,20 @@ ${text}
   `,
 
   // For full-page (ID-wrapped) translation
-  translate_webpage: (ids, texts, targetLang) => `
-You will receive a JSON object with two arrays: "ids" (unique numeric IDs) and "texts" (the strings to translate).
-
-Translate each element of "texts" into ${targetLang}, preserving tone, style, and natural flow.
-Do NOT modify, remove, or reorder the "ids" array.
-
-Respond with valid JSON only, exactly this format (no code fences, no extra commentary):
-{
-  "ids": [${ids.join(",")}],
-  "outputs": [
-    /* translated strings in the same order */
-  ]
-}
-
-Here is the input:
-${JSON.stringify({ ids, texts }, null, 2)}
+translate_webpage: (ids, texts, targetLang) => `
+  You will receive exactly this JSON as input (do not change it):
+  
+  ${JSON.stringify({ ids, texts }, null, 2)}
+  
+  Translate each element of "texts" into ${targetLang}, preserving tone and style.
+  Then respond *only* with a JSON object in this exact shape (no code fences, no comments, no extra keys, no explanation):
+  
+  {
+    "ids": [${ids.join(",")}],
+    "outputs": [
+      /* exactly ${ids.length} translated strings in the same order */
+    ]
+  }
   `,
 
   explain_phrase: (text, lang) => `
