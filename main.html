@@ -1,23 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Translator Extension</title>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="lib/firebase/firebase-ui-auth.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <!-- Firebase Compat SDKs (local under lib/firebase/) -->
   <script src="lib/firebase/firebase-app-compat.js"></script>
   <script src="lib/firebase/firebase-auth-compat.js"></script>
+  <script src="lib/firebase/firebase-firestore-compat.js"></script>
+
+  <!-- FirebaseUI (local under lib/firebase/) -->
   <script src="lib/firebase/firebase-ui-auth.js"></script>
-  <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="lib/firebase/firebase-ui-auth.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-
   <!-- Translator UI -->
   <div class="container" id="translator-ui">
     <div class="header">Translator</div>
 
-    <!-- Translation Provider Dropdown -->
+    <!-- Display Mode -->
     <div class="select-group">
       <label for="display-mode">Translation Display Mode</label>
       <select id="display-mode" class="provider-select">
@@ -26,30 +32,34 @@
       </select>
     </div>
 
-    <!-- Language Selection Dropdowns -->
+    <!-- From Language -->
     <div class="select-group">
       <label>From Language</label>
       <div class="custom-dropdown" id="source-dropdown"></div>
     </div>
 
+    <!-- To Language -->
     <div class="select-group">
       <label>To Language</label>
       <div class="custom-dropdown" id="target-dropdown"></div>
     </div>
 
-    <!-- Translate Button -->
+    <!-- Translate -->
     <button id="translate-btn" class="button-primary">Translate This Page</button>
 
-    <!-- Go to Settings Button -->
-    <a href="settings.html" class="button-primary">
-      Go to Settings
-    </a>
+    <!-- Settings -->
+    <a href="settings.html" class="button-primary">Go to Settings</a>
 
+    <!-- Sign In -->
     <button id="show-login" class="button-primary">
       <i class="fas fa-sign-in-alt"></i> Sign In
     </button>
+
+    <!-- User Info -->
+    <div id="user-info" class="user-info"></div>
   </div>
 
+  <!-- Footer -->
   <div class="footer">
     <i class="fas fa-sun"></i>
     <label class="toggle-wrapper">
@@ -58,10 +68,13 @@
     </label>
     <i class="fas fa-moon"></i>
   </div>
-  
-  <!-- Firebase UI Auth Container -->
+
+  <!-- FirebaseUI container -->
   <div id="firebaseui-auth-container" style="display: none; margin: 0 20px 10px;"></div>
 
+  <!-- Initialization and logic (order matters) -->
+  <script src="firebaseInit.js"></script>
+  <script src="userService.js"></script>
   <script src="main.js"></script>
 </body>
 </html>

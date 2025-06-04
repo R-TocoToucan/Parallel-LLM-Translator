@@ -1,16 +1,16 @@
+<!-- popup.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Text Assistant</title>
+  <link rel="stylesheet" href="popup_style.css" />
 </head>
 <body>
   <div class="popup-container">
-    <!-- Close Button 닫기 버튼 -->
     <button id="close-popup" class="close-btn" title="Close">&times;</button>
 
-    <!-- Initial Selection Popup -->
     <div id="selection-popup" class="selection-popup">
       <div class="selection-bar">
         <div class="extension-icon">
@@ -24,7 +24,6 @@
       </div>
     </div>
 
-    <!-- Function Popups -->
     <div id="function-popups" class="function-popups hidden">
       <div class="back-button-container">
         <button id="back-button" class="back-button">← Back to Selection</button>
@@ -34,10 +33,29 @@
       <section id="explanation-section" class="section explanation-section hidden">
         <h2>Explanation</h2>
         <div class="content">
-          <div class="text-box">
-            <textarea id="explanation-original-text" class="original-textarea" placeholder="Explanation of the highlighted text will appear here..."></textarea>
+          <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
+            <div class="language-selector">
+              <select id="explanation-target-language" aria-label="Select language">
+                <option value="auto">Auto-Detect</option>
+                <option value="en">English</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+                <option value="zh">Chinese</option>
+                <option value="ja">Japanese</option>
+                <option value="ko">Korean</option>
+              </select>
+            </div>
           </div>
-          <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+          <div class="text-box">
+            <textarea
+              id="explanation-original-text"
+              class="original-textarea"
+              placeholder="Explanation of the highlighted text will appear here..."
+            ></textarea>
+          </div>
+          <button id="explanation-action-button" class="action-button">Explain</button>
+          <div style="display:flex; justify-content:flex-end; margin-top:8px;">
             <button id="explanation-copy-button" class="copy-button-small">클립보드에 복사</button>
           </div>
         </div>
@@ -47,9 +65,21 @@
       <section id="translation-section" class="section translation-section hidden">
         <h2>Translation</h2>
         <div class="content">
+
           <div class="original-text">
-            <h3 style="display: flex; justify-content: space-between; align-items: center;">
-              <span>Original Text</span>
+            <h3>Original Text</h3>
+            <div class="text-box">
+              <textarea
+                id="translation-original-text"
+                class="original-textarea"
+                placeholder="Your highlighted text will appear here..."
+              ></textarea>
+            </div>
+          </div>
+
+          <div class="translated-text">
+            <h3 style="display:flex; justify-content:space-between; align-items:center;">
+              <span>Translated Text</span>
               <div class="language-selector">
                 <select id="translation-target-language" aria-label="Select language">
                   <option value="auto">Auto-Detect</option>
@@ -64,19 +94,16 @@
               </div>
             </h3>
             <div class="text-box">
-              <textarea id="translation-original-text" class="original-textarea" placeholder="Your highlighted text will appear here..."></textarea>
+              <textarea
+                id="translation-translated-text"
+                class="translated-textarea"
+                placeholder="Translation will appear here..."
+              ></textarea>
             </div>
           </div>
 
-          <div class="translated-text">
-            <h3>Translated Text</h3>
-            <div class="text-box">
-              <textarea id="translation-translated-text" class="translated-textarea" placeholder="Translation will appear here..."></textarea>
-            </div>
-          </div>
-
-          <button class="action-button replace-button">Replace with Translation</button>
-          <div style="display: flex; justify-content: flex-end; margin-top: 6px;">
+          <button id="translation-action-button" class="action-button">Replace with Translation</button>
+          <div style="display:flex; justify-content:flex-end; margin-top:6px;">
             <button id="translation-copy-button" class="copy-button-small">클립보드에 복사</button>
           </div>
         </div>
@@ -85,37 +112,41 @@
       <!-- Enhancement Section -->
       <section id="enhancement-section" class="section enhancement-section hidden">
         <h2>Enhancement</h2>
+        <div class="language-selector" style="display:flex; justify-content:flex-end; margin:8px 0 0;">
+          <select id="enhancement-target-language" aria-label="Select language">
+            <option value="auto">Auto-Detect</option>
+            <option value="en">English</option>
+            <option value="es">Spanish</option>
+            <option value="fr">French</option>
+            <option value="de">German</option>
+            <option value="zh">Chinese</option>
+            <option value="ja">Japanese</option>
+            <option value="ko">Korean</option>
+          </select>
+        </div>
         <div class="content">
           <div class="original-text">
-            <h3 style="display: flex; justify-content: space-between; align-items: center;">
-              <span>Original Text</span>
-              <div class="language-selector">
-                <select id="enhancement-target-language" aria-label="Select language">
-                  <option value="auto">Auto-Detect</option>
-                  <option value="en">English</option>
-                  <option value="es">Spanish</option>
-                  <option value="fr">French</option>
-                  <option value="de">German</option>
-                  <option value="zh">Chinese</option>
-                  <option value="ja">Japanese</option>
-                  <option value="ko">Korean</option>
-                </select>
-              </div>
-            </h3>
+            <h3>Original Text</h3>
             <div class="text-box">
-              <textarea id="enhancement-original-text" class="original-textarea" placeholder="Your highlighted text will appear here..."></textarea>
+              <textarea
+                id="enhancement-original-text"
+                class="original-textarea"
+                placeholder="Your highlighted text will appear here..."
+              ></textarea>
             </div>
           </div>
-
           <div class="enhanced-text">
             <h3>Enhanced Text</h3>
             <div class="text-box">
-              <textarea id="enhancement-enhanced-text" class="enhanced-textarea" placeholder="Enhanced version will appear here..."></textarea>
+              <textarea
+                id="enhancement-enhanced-text"
+                class="enhanced-textarea"
+                placeholder="Enhanced version will appear here..."
+              ></textarea>
             </div>
           </div>
-
-          <button class="action-button replace-button">Replace with Enhancement</button>
-          <div style="display: flex; justify-content: flex-end; margin-top: 6px;">
+          <button id="enhancement-action-button" class="action-button">Replace with Enhancement</button>
+          <div style="display:flex; justify-content:flex-end; margin-top:6px;">
             <button id="enhancement-copy-button" class="copy-button-small">클립보드에 복사</button>
           </div>
         </div>
@@ -124,6 +155,6 @@
     </div>
   </div>
 
-  <script src="popup.js"></script>
+  <script src="popup.js" type="module"></script>
 </body>
 </html>

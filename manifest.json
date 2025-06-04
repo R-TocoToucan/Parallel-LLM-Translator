@@ -25,12 +25,21 @@
 
   "web_accessible_resources": [
     {
-      "resources": ["popup.html", "popup.js", "popup_style.css", "main.js", "styles.css", "lib/firebase/*"],
+      "resources": [
+        "popup.html",
+        "userService.js",
+        "popup.js",
+        "popup_style.css",
+        "main.js",
+        "styles.css",
+        "lib/firebase/*",
+        "firebaseInit.js"
+      ],
       "matches": ["<all_urls>"],
       "use_dynamic_url": true
     }
   ],
-  
+
   "options_page": "settings.html",
 
   "content_security_policy": {

@@ -1,13 +1,9 @@
-// content.js
-
 let popupVisible = false;
 let outsideClickListener = null;
 
-// Get selected text and its coordinates
 function getSelectedTextAndCoords() {
   const selection = window.getSelection();
   const selectedText = selection.toString().trim();
-
   let coords = null;
   if (selection.rangeCount > 0) {
     const range = selection.getRangeAt(0);
@@ -19,15 +15,12 @@ function getSelectedTextAndCoords() {
       };
     }
   }
-
   return { selectedText, coords };
 }
 
-// Create popup root
 function createPopupRoot(coords) {
   const root = document.createElement("div");
   root.id = "parallel-translator-root";
-
   if (coords) {
     root.style.position = "absolute";
     root.style.top = coords.top + "px";
@@ -37,7 +30,6 @@ function createPopupRoot(coords) {
     root.style.bottom = "20px";
     root.style.right = "20px";
   }
-
   root.style.zIndex = "999999";
   document.body.appendChild(root);
   return root.attachShadow({ mode: "open" });
@@ -61,8 +53,8 @@ function movePopupTo(root, coords) {
 
 function enableOutsideClickToClose(root) {
   outsideClickListener = event => {
-    if (!root.contains(event.target)) {
-      root.style.display = "none";
+    if (!root || !root.contains(event.target)) {
+      if (root) root.style.display = "none";
       popupVisible = false;
       document.removeEventListener("mousedown", outsideClickListener);
       outsideClickListener = null;
@@ -111,6 +103,12 @@ document.addEventListener("keydown", async e => {
         popupVisible = false;
       } else {
         movePopupTo(root, coords);
+        shadow.getElementById("selection-popup")?.classList.remove("hidden");
+        shadow.getElementById("function-popups")?.classList.add("hidden");
+        shadow.getElementById("explanation-section")?.classList.add("hidden");
+        shadow.getElementById("translation-section")?.classList.add("hidden");
+        shadow.getElementById("enhancement-section")?.classList.add("hidden");
+
         root.style.display = "block";
         popupVisible = true;
         updatePopupText(shadow, selectedText);
@@ -123,13 +121,11 @@ document.addEventListener("keydown", async e => {
   }
 });
 
-// Revert page to original
 function revertPageTranslation() {
   const translatedEls = document.querySelectorAll('[data-translated="true"]');
   translatedEls.forEach(el => {
     const original = el.dataset.originalText;
     if (!original) return;
-
     if (el.classList.contains("translated-dual")) {
       el.replaceWith(document.createTextNode(original));
     } else if (el.firstChild && el.firstChild.nodeType === Node.TEXT_NODE) {
@@ -138,11 +134,19 @@ function revertPageTranslation() {
       delete el.dataset.originalText;
     }
   });
-
   console.log("content.js reverted to original text.");
 }
 
-// Full-page translation (manual button click)
+let observerTimeout = null;
+const observer = new MutationObserver(() => {
+  if (observerTimeout) clearTimeout(observerTimeout);
+  observerTimeout = setTimeout(() => {
+    chrome.storage.local.get(["targetLang", "displayMode"], data => {
+      translateIncremental(data.targetLang || "en", data.displayMode || "replace");
+    });
+  }, 1000);
+});
+
 async function translatePage(targetLang = "auto", mode = "replace") {
   observer.disconnect();
   revertPageTranslation();
@@ -152,32 +156,26 @@ async function translatePage(targetLang = "auto", mode = "replace") {
   const walker = document.createTreeWalker(
     document.body,
     NodeFilter.SHOW_TEXT,
-  {
-    acceptNode: node => {
-      const txt = node.nodeValue.trim();
-      if (!txt) 
-        return NodeFilter.FILTER_REJECT;
-
-      // skip purely numeric strings
-      if (/^[\d]+$/.test(txt)) 
-        return NodeFilter.FILTER_REJECT;
-
-      const p = node.parentNode;
-      if (
-        !p ||
-        ["SCRIPT","STYLE","TEXTAREA","INPUT","BUTTON"].includes(p.nodeName) ||
-        p.isContentEditable ||
-        window.getComputedStyle(p).display === "none" ||
-        window.getComputedStyle(p).visibility === "hidden" ||
-        p.closest('[data-translated="true"], .parallel-translator-text-wrapper')
-      ) {
-        return NodeFilter.FILTER_REJECT;
+    {
+      acceptNode: node => {
+        const txt = node.nodeValue.trim();
+        if (!txt) return NodeFilter.FILTER_REJECT;
+        if (/^[\d]+$/.test(txt)) return NodeFilter.FILTER_REJECT;
+        const p = node.parentNode;
+        if (
+          !p ||
+          ["SCRIPT", "STYLE", "TEXTAREA", "INPUT", "BUTTON"].includes(p.nodeName) ||
+          p.isContentEditable ||
+          window.getComputedStyle(p).display === "none" ||
+          window.getComputedStyle(p).visibility === "hidden" ||
+          p.closest('[data-translated="true"], .parallel-translator-text-wrapper')
+        ) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return NodeFilter.FILTER_ACCEPT;
       }
-
-      return NodeFilter.FILTER_ACCEPT;
     }
-  }
-);
+  );
 
   let node;
   while ((node = walker.nextNode())) {
@@ -201,9 +199,7 @@ async function translatePage(targetLang = "auto", mode = "replace") {
   }
 
   try {
-    await Promise.all(
-      batches.map(batch => translateBatch(batch, targetLang, mode))
-    );
+    await Promise.all(batches.map(batch => translateBatch(batch, targetLang, mode)));
     console.log(`content.js translation (${mode}) complete: ${nodes.length} nodes.`);
   } catch (err) {
     console.error("content.js translation error:", err);
@@ -212,7 +208,6 @@ async function translatePage(targetLang = "auto", mode = "replace") {
   }
 }
 
-// Incremental translation (auto on new content)
 async function translateIncremental(targetLang = "auto", mode = "replace") {
   const newNodes = [];
   const walker = document.createTreeWalker(
@@ -221,7 +216,6 @@ async function translateIncremental(targetLang = "auto", mode = "replace") {
     {
       acceptNode: node => {
         if (!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
-        // skip already translated
         if (node.parentNode.closest('[data-translated="true"], .parallel-translator-text-wrapper')) {
           return NodeFilter.FILTER_REJECT;
         }
@@ -259,89 +253,89 @@ async function translateIncremental(targetLang = "auto", mode = "replace") {
   }
 }
 
-// Helper to translate a single batch
 async function translateBatch({ texts: batchTexts, nodes: batchNodes }, targetLang, mode) {
   const ids = batchNodes.map((_, i) => i);
+  const payload = { ids, texts: batchTexts, language: targetLang };
 
-  const res = await fetch("https://parallel-llm-translator.onrender.com/translate_webpage", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      ids,
-      texts: batchTexts,
-      language: targetLang
-    })
+  let json;
+  try {
+    const res = await fetch("https://parallel-llm-translator.onrender.com/translate_webpage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error("translateBatch HTTP error", {
+        status: res.status,
+        statusText: res.statusText,
+        errorText
+      });
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    json = await res.json();
+  } catch (err) {
+    console.error("translateBatch network error", err);
+    batchNodes.forEach((n, i) => injectTranslation(n, batchTexts[i], mode));
+    return;
+  }
+
+  const raw = Array.isArray(json.outputs)
+    ? json.outputs
+    : Array.isArray(json.translations)
+    ? json.translations
+    : [];
+
+  const translationsMap = new Map();
+  raw.forEach((entry, idx) => {
+    let text = "";
+    if (typeof entry === "string") {
+      text = entry;
+    } else if (entry && typeof entry === "object") {
+      text = entry.text || entry.translatedText || entry.translation || "";
+    }
+    text = text.trim();
+    if (text) {
+      translationsMap.set(idx, text);
+    }
   });
 
-  if (!res.ok) {
-    const errJson = await res.json().catch(() => ({}));
-    console.error("content.js 400 from translate endpoint:", errJson.error || errJson);
-    throw new Error("Bad Request from translation API");
-  }
-
-  const json = await res.json();
-  let translations;
-  if (Array.isArray(json.translations)) {
-    translations = json.translations;
-  } else {
-    const raw =
-      (typeof json.result === "string" ? json.result
-        : typeof json.translation === "string" ? json.translation
-        : "")
-      .replace(/^"+|"+$/g, "");
-
-    let cleaned = raw.split("\n\n").map(s => s.trim());
-    while (cleaned.length < batchTexts.length) cleaned.push("");
-    if (cleaned.length > batchTexts.length) cleaned.length = batchTexts.length;
-
-    translations = batchNodes.map((node, i) =>
-      cleaned[i] !== "" ? cleaned[i] : node.nodeValue
-    );
-  }
-
-  translations.forEach((translated, i) => {
-    const node = batchNodes[i];
-    const parent = node.parentNode;
-    if (!parent) return;
-
-    if (mode === "dual") {
-      const wrapper = document.createElement("span");
-      wrapper.className = "translated-dual";
-      wrapper.dataset.originalText = node.nodeValue;
-      wrapper.dataset.translated = "true";
-
-      const original = document.createElement("span");
-      original.className = "original-text";
-      original.textContent = node.nodeValue;
-
-      const tSpan = document.createElement("span");
-      tSpan.className = "translated-text";
-      tSpan.textContent = translated;
-
-      wrapper.appendChild(original);
-      wrapper.appendChild(document.createElement("br"));
-      wrapper.appendChild(tSpan);
-      parent.replaceChild(wrapper, node);
-    } else {
-      parent.dataset.originalText = node.nodeValue;
-      parent.dataset.translated = "true";
-      node.nodeValue = translated;
-    }
+  batchTexts.forEach((orig, idx) => {
+    const finalText = translationsMap.has(idx) ? translationsMap.get(idx) : orig;
+    injectTranslation(batchNodes[idx], finalText, mode);
+    console.log(`[Translated] "${orig}" -> "${finalText}"`);
   });
 }
 
-// MutationObserver with debounce
-let observerTimeout = null;
-const observer = new MutationObserver(() => {
-  if (observerTimeout) clearTimeout(observerTimeout);
-  observerTimeout = setTimeout(() => {
-    chrome.storage.local.get(["targetLang", "displayMode"], data => {
-      translateIncremental(data.targetLang || "en", data.displayMode || "replace");
-    });
-  }, 1000);
-});
+function injectTranslation(node, text, mode) {
+  const parent = node.parentNode;
+  if (!parent) return;
 
-// Manual translate via popup message
+  if (mode === "dual") {
+    const wrapper = document.createElement("span");
+    wrapper.className = "translated-dual";
+    wrapper.dataset.originalText = node.nodeValue;
+    wrapper.dataset.translated = "true";
+
+    const orig = document.createElement("span");
+    orig.className = "original-text";
+    orig.textContent = node.nodeValue;
+
+    const trans = document.createElement("span");
+    trans.className = "translated-text";
+    trans.textContent = text;
+
+    wrapper.append(orig, document.createElement("br"), trans);
+    parent.replaceChild(wrapper, node);
+  } else {
+    parent.dataset.originalText = node.nodeValue;
+    parent.dataset.translated = "true";
+    node.nodeValue = text;
+  }
+}
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === "translatePage") {
     translatePage(msg.targetLang, msg.mode);
@@ -349,7 +343,6 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
 });
 
-// Ctrl+Shift+Z to revert manually
 document.addEventListener("keydown", e => {
   if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "z") {
     revertPageTranslation();
