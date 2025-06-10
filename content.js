@@ -87,39 +87,36 @@ function updatePopupText(shadow, selectedText) {
   });
 }
 
-document.addEventListener("keydown", async e => {
-  if (e.ctrlKey && e.key.toLowerCase() === "b") {
-    const { selectedText, coords } = getSelectedTextAndCoords();
-    let root = document.getElementById("parallel-translator-root");
+async function openTranslatorPopup(selectedText, coords) {
+  let root = document.getElementById("parallel-translator-root");
 
-    if (!root) {
-      const shadow = createPopupRoot(coords);
-      await loadPopupContent(shadow, selectedText);
-      popupVisible = true;
-    } else {
-      const shadow = root.shadowRoot;
-      if (popupVisible) {
-        root.style.display = "none";
-        popupVisible = false;
-      } else {
-        movePopupTo(root, coords);
-        shadow.getElementById("selection-popup")?.classList.remove("hidden");
-        shadow.getElementById("function-popups")?.classList.add("hidden");
-        shadow.getElementById("explanation-section")?.classList.add("hidden");
-        shadow.getElementById("translation-section")?.classList.add("hidden");
-        shadow.getElementById("enhancement-section")?.classList.add("hidden");
-
-        root.style.display = "block";
-        popupVisible = true;
-        updatePopupText(shadow, selectedText);
-      }
-    }
-
+  if (!root) {
+    const shadow = createPopupRoot(coords);
+    await loadPopupContent(shadow, selectedText);
+    popupVisible = true;
+  } else {
+    const shadow = root.shadowRoot;
     if (popupVisible) {
-      enableOutsideClickToClose(root);
+      root.style.display = "none";
+      popupVisible = false;
+    } else {
+      movePopupTo(root, coords);
+      shadow.getElementById("selection-popup")?.classList.remove("hidden");
+      shadow.getElementById("function-popups")?.classList.add("hidden");
+      shadow.getElementById("explanation-section")?.classList.add("hidden");
+      shadow.getElementById("translation-section")?.classList.add("hidden");
+      shadow.getElementById("enhancement-section")?.classList.add("hidden");
+
+      root.style.display = "block";
+      popupVisible = true;
+      updatePopupText(shadow, selectedText);
     }
   }
-});
+
+  if (popupVisible) {
+    enableOutsideClickToClose(root);
+  }
+}
 
 function revertPageTranslation() {
   const translatedEls = document.querySelectorAll('[data-translated="true"]');
@@ -336,15 +333,38 @@ function injectTranslation(node, text, mode) {
   }
 }
 
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  if (msg.type === "translatePage") {
-    translatePage(msg.targetLang, msg.mode);
-    sendResponse({ status: "started" });
+// Keybindings
+document.addEventListener("keydown", e => {
+  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "b") {
+    const { selectedText, coords } = getSelectedTextAndCoords();
+    openTranslatorPopup(selectedText, coords);
+  }
+
+  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "z") {
+    revertPageTranslation();
   }
 });
 
-document.addEventListener("keydown", e => {
-  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "z") {
-    revertPageTranslation();
+// Context menu integration (from background.js)
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg.type === "parallel-translate-context") {
+    const selection = window.getSelection();
+    const range = selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+    let coords = null;
+    if (range) {
+      const rect = range.getBoundingClientRect();
+      if (rect.width && rect.height) {
+        coords = {
+          top: rect.top + window.scrollY + 20,
+          left: rect.left + window.scrollX
+        };
+      }
+    }
+    openTranslatorPopup(msg.selectedText, coords);
+  }
+
+  if (msg.type === "translatePage") {
+    translatePage(msg.targetLang, msg.mode);
+    sendResponse({ status: "started" });
   }
 });

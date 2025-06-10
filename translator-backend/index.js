@@ -4,18 +4,49 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import fetch from 'node-fetch';
+import admin from 'firebase-admin';
 import { PROMPTS, SYSTEM_MESSAGE } from './prompts.js';
+import serviceAccount from './path/to/your-service-account.json'; // Replace this
 
+// Load environment variables
 dotenv.config();
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 const API_KEY = process.env.OPENAI_API_KEY;
 
+// Firebase Admin init
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
+const db = admin.firestore();
+
 app.use(cors());
 app.use(express.json());
 
-function getModel(tier) {
-  return tier === 'pro' ? 'gpt-4' : 'gpt-3.5-turbo';
+// Secure model resolution with backend-enforced credit logic
+async function getModelForRequest(uid) {
+  if (!uid) return 'gpt-3.5-turbo'; // Guest user fallback
+
+  try {
+    const doc = await db.collection('users').doc(uid).get();
+    if (!doc.exists) return 'gpt-3.5-turbo';
+
+    const data = doc.data();
+    const credit = data.credit ?? 0;
+
+    if (credit > 0) {
+      await db.collection('users').doc(uid).update({
+        credit: admin.firestore.FieldValue.increment(-1)
+      });
+      return 'gpt-4';
+    } else {
+      return 'gpt-3.5-turbo';
+    }
+  } catch (err) {
+    console.error('Error checking user credit:', err);
+    return 'gpt-3.5-turbo';
+  }
 }
 
 async function callOpenAI({ system, user, model }) {
@@ -29,19 +60,20 @@ async function callOpenAI({ system, user, model }) {
       model,
       messages: [
         { role: "system", content: system },
-        { role: "user",   content: user   }
+        { role: "user",   content: user }
       ],
       temperature: 0.3
     })
   });
+
   const data = await res.json();
   return data.choices?.[0]?.message?.content?.trim() || null;
 }
 
 function createLLMRoute(path, promptBuilder) {
   app.post(path, async (req, res) => {
-    const { text, language, tier = 'free' } = req.body;
-    console.log(`[${path.toUpperCase()}]`, { textLength: text?.length, language, tier });
+    const { text, language, uid } = req.body;
+    console.log(`[${path.toUpperCase()}]`, { textLength: text?.length, language, uid });
 
     if (typeof text !== "string" || !text || typeof language !== "string" || !language) {
       return res.status(400).json({ error: 'Invalid input types.' });
@@ -49,10 +81,11 @@ function createLLMRoute(path, promptBuilder) {
 
     const userPrompt = promptBuilder(text, language);
     try {
+      const model = await getModelForRequest(uid);
       const response = await callOpenAI({
         system: SYSTEM_MESSAGE,
-        user:   userPrompt,
-        model:  getModel(tier),
+        user: userPrompt,
+        model
       });
       res.json({ result: response });
     } catch (err) {
@@ -62,20 +95,20 @@ function createLLMRoute(path, promptBuilder) {
   });
 }
 
-// Generic routes
+// Generic LLM routes
 createLLMRoute('/translate',   PROMPTS.translate);
 createLLMRoute('/explain',     PROMPTS.explain_phrase);
 createLLMRoute('/enhance',     PROMPTS.enhance_text);
 createLLMRoute('/summarize',   PROMPTS.summarize_webpage);
 
-// Full-page translation route
+// Full-page translation
 app.post('/translate_webpage', async (req, res) => {
-  const { ids, texts, language, tier = 'free' } = req.body;
+  const { ids, texts, language, uid } = req.body;
   console.log('[TRANSLATE_WEBPAGE]', {
-    idsCount:   Array.isArray(ids)   ? ids.length   : null,
+    idsCount: Array.isArray(ids) ? ids.length : null,
     textsCount: Array.isArray(texts) ? texts.length : null,
     language,
-    tier
+    uid
   });
 
   if (
@@ -93,20 +126,19 @@ app.post('/translate_webpage', async (req, res) => {
 
   const userPrompt = PROMPTS.translate_webpage(ids, texts, language);
 
-  // Call the LLM
   let reply;
   try {
+    const model = await getModelForRequest(uid);
     reply = await callOpenAI({
       system: SYSTEM_MESSAGE,
-      user:   userPrompt,
-      model:  getModel(tier),
+      user: userPrompt,
+      model
     });
   } catch (err) {
     console.error('Error calling OpenAI for /translate_webpage:', err);
     return res.status(500).json({ error: 'OpenAI request failed.' });
   }
 
-  // Extract and parse JSON
   let parsed;
   try {
     parsed = JSON.parse(reply);
@@ -125,7 +157,6 @@ app.post('/translate_webpage', async (req, res) => {
     }
   }
 
-  // Normalize outputs
   const outputs = Array.isArray(parsed.outputs)
     ? parsed.outputs
     : Array.isArray(parsed.translations)
@@ -138,10 +169,7 @@ app.post('/translate_webpage', async (req, res) => {
   }
 
   if (outputs.length !== texts.length) {
-    console.error(
-      'Length mismatch: expected', texts.length,
-      'got', outputs.length, 'parsed:', parsed
-    );
+    console.error('Length mismatch: expected', texts.length, 'got', outputs.length);
     return res.status(500).json({ error: 'LLM returned wrong number of items.' });
   }
 

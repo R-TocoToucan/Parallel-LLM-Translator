@@ -2,18 +2,34 @@
   "manifest_version": 3,
   "name": "Parallel Translator",
   "version": "1.0",
+  "description": "Translate, explain, or enhance selected text instantly.",
+
+  "permissions": [
+    "identity",
+    "storage",
+    "tabs",
+    "contextMenus",
+    "scripting"
+  ],
+
+  "oauth2": {
+    "client_id": "277604934909-j4qm9o0a1m9gv3l5d3mmjv2g9a9q9fhk.apps.googleusercontent.com",
+    "scopes": ["https://www.googleapis.com/auth/userinfo.email"]
+  },
+  
+  "host_permissions": [
+    "https://api.openai.com/",
+    "https://parallel-llm-translator.onrender.com/*",
+    "http://localhost:3000/"
+  ],
 
   "action": {
     "default_popup": "main.html"
   },
 
-  "permissions": ["storage", "tabs"],
-
-  "host_permissions": [
-    "https://api.openai.com/",
-    "http://localhost:3000/",
-    "chrome-extension://*/"
-  ],
+  "background": {
+    "service_worker": "background.js"
+  },
 
   "content_scripts": [
     {
@@ -27,22 +43,29 @@
     {
       "resources": [
         "popup.html",
-        "userService.js",
         "popup.js",
         "popup_style.css",
         "main.js",
         "styles.css",
-        "lib/firebase/*",
-        "firebaseInit.js"
+        "firebaseInit.js",
+        "lib/firebase/*"
       ],
-      "matches": ["<all_urls>"],
-      "use_dynamic_url": true
+      "matches": ["<all_urls>"]
     }
   ],
+
+  "commands": {
+    "togglePopup": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+B"
+      },
+      "description": "Show translation popup"
+    }
+  },
 
   "options_page": "settings.html",
 
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self';"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://parallel-llm-translator.onrender.com"
   }
 }
