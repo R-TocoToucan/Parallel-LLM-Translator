@@ -1,31 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Translator Extension</title>
 
-  <!-- Existing CSS -->
-  <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="lib/firebase/firebase-ui-auth.css">
-  <link rel="stylesheet" 
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Stylesheets / 스타일시트 -->
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="lib/firebase/firebase-ui-auth.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
-  <!-- Firebase Compat SDKs (local under lib/firebase/) -->
+  <!-- Firebase SDK (Compat version) / 파이어베이스 SDK (호환 버전) -->
   <script src="lib/firebase/firebase-app-compat.js"></script>
   <script src="lib/firebase/firebase-auth-compat.js"></script>
   <script src="lib/firebase/firebase-firestore-compat.js"></script>
-
-  <!-- FirebaseUI (local under lib/firebase/) -->
   <script src="lib/firebase/firebase-ui-auth.js"></script>
 </head>
 <body>
-
-  <!-- Translator UI -->
+  <!-- Main Translator UI / 번역기 메인 화면 -->
   <div class="container" id="translator-ui">
     <div class="header">Translator</div>
 
-    <!-- Translation Display Mode Selector -->
+    <!-- Display Mode Selector / 출력 방식 선택 -->
     <div class="select-group">
       <label for="display-mode">Translation Display Mode</label>
       <select id="display-mode" class="provider-select">
@@ -34,31 +30,36 @@
       </select>
     </div>
 
-    <!-- From Language Dropdown -->
+    <!-- Source Language Dropdown / 원문 언어 선택 -->
     <div class="select-group">
       <label>From Language</label>
       <div class="custom-dropdown" id="source-dropdown"></div>
     </div>
 
-    <!-- To Language Dropdown -->
+    <!-- Target Language Dropdown / 번역 언어 선택 -->
     <div class="select-group">
       <label>To Language</label>
       <div class="custom-dropdown" id="target-dropdown"></div>
     </div>
 
-    <!-- Translate Button -->
+    <!-- Translate Button / 번역 실행 버튼 -->
     <button id="translate-btn" class="button-primary">Translate This Page</button>
 
-    <!-- Go to Settings -->
+    <!-- Settings Link / 설정 페이지로 이동 -->
     <a href="settings.html" class="button-primary">Go to Settings</a>
 
-    <!-- Sign In Button -->
-    <button id="show-login" class="button-primary">
+    <!-- Sign In/Out Button / 로그인 또는 로그아웃 버튼 -->
+    <button id="auth-btn" class="button-primary auth-sign-in">
       <i class="fas fa-sign-in-alt"></i> Sign In
     </button>
+
+    <!-- User Info Display / 사용자 정보 표시 -->
+    <div id="user-info" style="margin-top: 10px; text-align: center; font-size: 0.9em; color: #ccc;">
+      Not signed in
+    </div>
   </div>
 
-  <!-- Footer with Dark Mode Toggle -->
+  <!-- Footer with Dark Mode / 다크 모드 전환 -->
   <div class="footer">
     <i class="fas fa-sun"></i>
     <label class="toggle-wrapper">
@@ -68,13 +69,13 @@
     <i class="fas fa-moon"></i>
   </div>
 
-  <!-- Firebase UI Auth Container -->
+  <!-- Firebase UI Container / 파이어베이스 UI 컨테이너 -->
   <div id="firebaseui-auth-container" style="display: none; margin: 0 20px 10px;"></div>
 
-  <!-- External Firebase initialization (no inline scripts) -->
+  <!-- Firebase Initialization / 파이어베이스 초기화 -->
   <script src="firebaseInit.js"></script>
 
-  <!-- Load modules in correct order -->
+  <!-- JS Modules / 자바스크립트 모듈 -->
   <script type="module" src="userService.js"></script>
   <script type="module" src="main.js"></script>
 </body>

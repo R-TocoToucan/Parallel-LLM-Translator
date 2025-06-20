@@ -1,44 +1,36 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Settings</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-
-  <!-- Settings UI -->
   <div class="container">
     <div class="header">Settings</div>
 
-    <!-- Account Section -->
+    <!-- Account Info / 계정 정보 -->
     <section>
       <h3>Account</h3>
       <p id="user-info">Loading user info...</p>
-      <button id="sign-out" class="settings-btn">Sign Out</button>
+      <p id="credit-info" style="font-size: 0.9em; color: #aaa;">Checking credit...</p>
+      <button id="auth-toggle" class="settings-btn" data-signed-in="false">Sign In</button>
     </section>
 
-    <!-- Service Provider Section -->
+    <!-- Model Selection / 모델 선택 -->
     <section>
-      <h3>Service Provider</h3>
-      <label for="provider-select">Translation Provider</label>
-      <select id="provider-select">
-        <option value="local">Local AI</option>
-        <option value="openai">OpenAI</option>
+      <h3>Model</h3>
+      <label for="model-select">Model</label>
+      <select id="model-select">
+        <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+        <option value="gpt-4">GPT-4</option>
       </select>
     </section>
 
-    <!-- Display Section -->
+    <!-- UI Language / UI 언어 설정 -->
     <section>
-      <h3>Display</h3>
-      <label for="theme-select">Theme</label>
-      <select id="theme-select">
-        <option value="system">System Default</option>
-        <option value="light">Light</option>
-        <option value="dark">Dark</option>
-      </select>
-
+      <h3>Interface</h3>
       <label for="ui-lang-select">Display Language</label>
       <select id="ui-lang-select">
         <option value="en">English</option>
@@ -47,27 +39,14 @@
       </select>
     </section>
 
-    <!-- Translation Section -->
+    <!-- Personal Dictionary / 사용자 사전 -->
     <section>
-      <h3>Translation</h3>
-      <label for="model-select">Model</label>
-      <select id="model-select">
-        <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-        <option value="gpt-4">GPT-4</option>
-      </select>
-
-      <label for="display-style-select">Web Display Style</label>
-      <select id="display-style-select">
-        <option value="inline">Inline</option>
-        <option value="side">Side-by-side</option>
-        <option value="tooltip">Tooltip</option>
-      </select>
+      <h3>Personal Dictionary</h3>
+      <button id="manage-dictionary" class="settings-btn">Manage Dictionary</button>
     </section>
 
-    <!-- Back Button -->
-    <a href="main.html" class="settings-btn">
-        Back to Translator
-    </a>
+    <!-- Back to main.html -->
+    <a href="main.html" class="settings-btn">Back to Translator</a>
   </div>
 
   <script src="settings.js"></script>

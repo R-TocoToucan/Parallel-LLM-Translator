@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAy3IxBVrWRYp7bjOIjqMjGQe9lqBAIMBDQk5mAFn/I8Gq7XkdrCST7etJn35zKNtd1xP4rCT1lNZY9c/XuSTxTdRMQVyNk62z/5cXahsgPHzd3dZ02G0hOFkEozDs/5J6lO/h7civXJrK8/HhzrcL9Xxu0Sat4Ja8d65F6O+dXdGQt//E9V53NXMNVTpndEFR4yHZ1F9DLT9u3j9MFgCtEv/sRHp6d95x05AaRe9pCh1W1LXjBSfazj9H1m4lxSi7eIMO5SvwcZc/k4X35Xuo+fY9oK/5LpEpJXtsKzdmny7V2I8HGjR1XAqZMwT+IedGC11BslaTDS0hiGXn/kxXqQIDAQAB",
   "name": "Parallel Translator",
   "version": "1.0",
   "description": "Translate, explain, or enhance selected text instantly.",
-
   "permissions": [
     "identity",
     "storage",
@@ -11,17 +11,20 @@
     "contextMenus",
     "scripting"
   ],
-
-  "oauth2": {
-    "client_id": "277604934909-j4qm9o0a1m9gv3l5d3mmjv2g9a9q9fhk.apps.googleusercontent.com",
-    "scopes": ["https://www.googleapis.com/auth/userinfo.email"]
-  },
   
   "host_permissions": [
     "https://api.openai.com/",
     "https://parallel-llm-translator.onrender.com/*",
     "http://localhost:3000/"
   ],
+
+  "oauth2": {
+    "client_id": "277604934909-g4k6ndulm1tuhosglhiaegsebs9q1omq.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/userinfo.profile"
+    ]
+  },
 
   "action": {
     "default_popup": "main.html"
@@ -38,7 +41,7 @@
       "run_at": "document_idle"
     }
   ],
-
+  
   "web_accessible_resources": [
     {
       "resources": [
@@ -53,7 +56,7 @@
       "matches": ["<all_urls>"]
     }
   ],
-
+  
   "commands": {
     "togglePopup": {
       "suggested_key": {
@@ -66,6 +69,6 @@
   "options_page": "settings.html",
 
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://parallel-llm-translator.onrender.com"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.googleapis.com https://*.gstatic.com https://parallel-llm-translator.onrender.com"
   }
 }

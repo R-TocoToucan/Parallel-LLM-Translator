@@ -125,7 +125,7 @@ body.light .dropdown-list {
   100% { transform: scale(1) rotate(0deg); }
 }
 
-/* Button Styles */
+/* Base Button Styles */
 button, .settings-btn {
   background-color: #219653;
   color: white;
@@ -141,9 +141,10 @@ button, .settings-btn {
 }
 
 button:hover, .settings-btn:hover {
-  background-color: #1a7431; /* Darker background on hover */
+  background-color: #1a7431;
 }
 
+/* Primary button class (base) */
 .button-primary {
   background-color: #219653;
   color: white;
@@ -163,16 +164,24 @@ button:hover, .settings-btn:hover {
   background-color: #388E3C;
 }
 
-#show-login {
-  background-color: #008CBA; /* Blue color for Sign In button */
-  color: white;
+/* Sign In button (blue) */
+.button-primary.auth-sign-in {
+  background-color: #008CBA !important;
+}
+.button-primary.auth-sign-in:hover {
+  background-color: #007B9A !important;
 }
 
-#show-login:hover {
-  background-color: #007B9A;
+/* Sign Out button (red) */
+.button-primary.auth-sign-out {
+  background-color: #a33 !important;
+}
+.button-primary.auth-sign-out:hover {
+  background-color: #822 !important;
 }
 
-/* main Styles */
+
+/* Main popup styles */
 .main-translator {
   position: absolute;
   top: 20px;
@@ -263,96 +272,89 @@ body.light .main-textarea {
   background-color: #1a7431;
 }
 
-
-/* Toggle Switch Styles 다크 모드 스위치*/
+/* Dark mode toggle switch */
 #dark-toggle {
-    display: none;
-  }
-  
-  /* Wrapper makes the whole thing clickable */
-  .toggle-wrapper {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    position: relative;
-    width: 40px;
-    height: 20px;
-  }
-  
-  /* Track */
-  .toggle {
-    width: 100%;
-    height: 100%;
-    background-color: #3c3c3c;
-    border-radius: 20px;
-    position: relative;
-    transition: background-color 0.3s ease;
-  }
-  
-  /* Knob */
-  .toggle::before {
-    content: '';
-    position: absolute;
-    width: 16px;
-    height: 16px;
-    background-color: #ffffff;
-    border-radius: 50%;
-    top: 2px;
-    left: 2px;
-    transition: transform 0.3s ease;
-  }
-  
-  /* Checked state */
-  #dark-toggle:checked + .toggle {
-    background-color: #00c3ff;
-  }
-  
-  #dark-toggle:checked + .toggle::before {
-    transform: translateX(20px);
-  }
-  
-  /* Footer 스위치 위치 */
-  .footer {
-    padding: 16px 20px;
-    border-top: 1px solid #333;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 10px;
-    position: relative;
-  }
+  display: none;
+}
 
-  select.provider-select {
-    width: 100%;
-    padding: 8px 10px;
-    border-radius: 6px;
-    font-size: 14px;
-    background-color: #3c3c3c;
-    color: #ffffff;
-    border: none;
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    transition: background-color 0.3s ease, color 0.3s ease;
-  }
-  
-  body.light select.provider-select {
-    background-color: #ddd;
-    color: #000;
-  }
+.toggle-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  width: 40px;
+  height: 20px;
+}
 
- /* Dual-mode wrapper: make it a true block with spacing */
+.toggle {
+  width: 100%;
+  height: 100%;
+  background-color: #3c3c3c;
+  border-radius: 20px;
+  position: relative;
+  transition: background-color 0.3s ease;
+}
+
+.toggle::before {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  background-color: #ffffff;
+  border-radius: 50%;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.3s ease;
+}
+
+#dark-toggle:checked + .toggle {
+  background-color: #00c3ff;
+}
+
+#dark-toggle:checked + .toggle::before {
+  transform: translateX(20px);
+}
+
+/* Footer area for dark mode toggle */
+.footer {
+  padding: 16px 20px;
+  border-top: 1px solid #333;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+}
+
+/* Language select dropdown */
+select.provider-select {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  background-color: #3c3c3c;
+  color: #ffffff;
+  border: none;
+  appearance: none;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+body.light select.provider-select {
+  background-color: #ddd;
+  color: #000;
+}
+
+/* Dual-mode translation output */
 .translated-dual {
-  display: block;           /* was inline-block */
-  margin: 6px 0 12px;       /* space above & below each translation */
-  padding: 6px 8px;         /* pad inside so text doesn’t butt up against edges */
-  background: rgba(220, 235, 255, 0.3);  /* very light highlight */
+  display: block;
+  margin: 6px 0 12px;
+  padding: 6px 8px;
+  background: rgba(220, 235, 255, 0.3);
   border-radius: 4px;
   line-height: 1.4;
 }
 
-/* Original text in dual mode: smaller and slightly dimmed */
 .original-text {
   display: block;
   color: #bbbbbb;
@@ -360,21 +362,21 @@ body.light .main-textarea {
   margin-bottom: 4px;
 }
 
-/* Translated text: block, bold, full-contrast */
 .translated-text {
   display: block;
-  color: #ffffff;    /* or #000 in light mode */
+  color: #ffffff;
   font-weight: 600;
   white-space: pre-wrap;
 }
 
-/* In light‐mode overrides, flip the colors */
 body.light .translated-dual {
   background: rgba(0, 0, 0, 0.05);
 }
+
 body.light .original-text {
   color: #666;
 }
+
 body.light .translated-text {
   color: #000;
 }
