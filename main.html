@@ -8,7 +8,8 @@
   <!-- Stylesheets / 스타일시트 -->
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="lib/firebase/firebase-ui-auth.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
   <!-- Firebase SDK (Compat version) / 파이어베이스 SDK (호환 버전) -->
   <script src="lib/firebase/firebase-app-compat.js"></script>
@@ -54,7 +55,8 @@
     </button>
 
     <!-- User Info Display / 사용자 정보 표시 -->
-    <div id="user-info" style="margin-top: 10px; text-align: center; font-size: 0.9em; color: #ccc;">
+    <div id="user-info"
+         style="margin-top: 10px; text-align: center; font-size: 0.9em; color: #ccc;">
       Not signed in
     </div>
   </div>
@@ -69,14 +71,10 @@
     <i class="fas fa-moon"></i>
   </div>
 
-  <!-- Firebase UI Container / 파이어베이스 UI 컨테이너 -->
-  <div id="firebaseui-auth-container" style="display: none; margin: 0 20px 10px;"></div>
-
   <!-- Firebase Initialization / 파이어베이스 초기화 -->
   <script src="firebaseInit.js"></script>
 
-  <!-- JS Modules / 자바스크립트 모듈 -->
-  <script type="module" src="userService.js"></script>
+  <!-- Load main.js as an ES module; it imports userService.js and authService.js -->
   <script type="module" src="main.js"></script>
 </body>
 </html>

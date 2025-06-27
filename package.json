@@ -1,7 +1,8 @@
 {
   "dependencies": {
     "firebase": "^11.6.0",
-    "firebase-admin": "^13.4.0"
+    "firebase-admin": "^13.4.0",
+    "google-auth-library": "^10.1.0"
   },
   "name": "parallel-translator",
   "version": "1.0.0",

@@ -1,117 +1,119 @@
+// main.js
+
+import {
+  initUserService,
+  getCredit,
+  decrementCredit,
+  getUserTier,
+  updateUserTier
+} from "./userService.js";
+
+import {
+  signIn,
+  signOut,
+  getProfile,
+  syncUserData,
+  getAppUserData
+} from "./authService.js";
+
 console.log("main.js loaded");
 
-const BACKEND_URL = "https://parallel-llm-translator.onrender.com";
-const GOOGLE_CLIENT_ID = "277604934909-g4k6ndulm1tuhosglhiaegsebs9q1omq.apps.googleusercontent.com";
-
+//
 // Wait for userService to initialize / userService가 초기화될 때까지 대기
+//
 function waitForUserServiceInit(callback) {
-  const interval = setInterval(() => {
-    if (window.userService && window.userService.initUserService) {
-      clearInterval(interval);
-      callback();
-    }
-  }, 50);
+  initUserService(callback);
 }
 
-// Get OAuth token using launchWebAuthFlow (forces account chooser)
-// launchWebAuthFlow를 사용하여 Google 토큰 요청 (계정 선택 강제)
-async function getGoogleTokenViaLaunch() {
-  const redirectUri = chrome.identity.getRedirectURL(); // 확장 전용 redirect URI
-
-  const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
-  authUrl.searchParams.set("client_id", GOOGLE_CLIENT_ID);
-  authUrl.searchParams.set("response_type", "token");
-  authUrl.searchParams.set("redirect_uri", redirectUri);
-  authUrl.searchParams.set("scope", "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile");
-  authUrl.searchParams.set("prompt", "select_account"); // 계정 선택 창 강제 표시
-
-  return new Promise((resolve, reject) => {
-    chrome.identity.launchWebAuthFlow({ url: authUrl.toString(), interactive: true }, (redirectUrl) => {
-      if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
-      if (!redirectUrl) return reject(new Error("Empty redirect"));
-
-      const tokenMatch = redirectUrl.match(/[#&]access_token=([^&]*)/);
-      if (!tokenMatch) return reject(new Error("No access token found"));
-      resolve(tokenMatch[1]);
-    });
-  });
-}
-
-// Fetch user profile from Google using access token
-// Google 사용자 정보 불러오기
-async function getGoogleProfile(token) {
-  try {
-    const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    if (!res.ok) throw new Error("Profile fetch failed");
-    return await res.json(); // { name, email, ... }
-  } catch (e) {
-    console.error("Failed to fetch profile:", e);
-    return {};
-  }
-}
-
+//
 // Update UI to reflect signed-in or signed-out state
-// 로그인 UI 상태 갱신
-async function updateUserDisplay(token) {
+//
+async function updateUserDisplay(accessToken) {
   const userInfoEl = document.getElementById("user-info");
-  const authBtn = document.getElementById("auth-btn");
-
+  const authBtn    = document.getElementById("auth-btn");
   if (!userInfoEl || !authBtn) return;
 
   authBtn.classList.remove("auth-sign-in", "auth-sign-out");
-
-  if (token) {
-    const profile = await getGoogleProfile(token);
+  if (accessToken) {
+    // Signed in: show profile name/email
+    const profile     = await getProfile(accessToken);
     const displayName = profile.name || profile.email || "Signed in";
-    userInfoEl.textContent = `Signed in as ${displayName}`;
-    authBtn.innerHTML = `Sign Out`;
+    userInfoEl.textContent   = `Signed in as ${displayName}`;
+    authBtn.textContent      = "Sign Out";
     authBtn.classList.add("auth-sign-out");
     authBtn.dataset.signedIn = "true";
   } else {
-    userInfoEl.textContent = "Not signed in";
-    authBtn.innerHTML = `Sign In`;
+    // Not signed in
+    userInfoEl.textContent   = "Not signed in";
+    authBtn.textContent      = "Sign In";
     authBtn.classList.add("auth-sign-in");
     authBtn.dataset.signedIn = "false";
   }
 }
 
-// Handle sign-in and sign-out button clicks
-// 로그인 / 로그아웃 버튼 처리
+//
+// Handle Sign In / Sign Out button clicks
+//
 document.getElementById("auth-btn")?.addEventListener("click", async () => {
-  const authBtn = document.getElementById("auth-btn");
+  const userInfoEl = document.getElementById("user-info");
+  const authBtn    = document.getElementById("auth-btn");
 
-  if (authBtn?.dataset.signedIn === "true") {
-    // 로그아웃 처리
-    await chrome.identity.clearAllCachedAuthTokens(); // 모든 토큰 및 사용자 기본 계정 설정 제거
-    localStorage.removeItem("googleToken");
+  if (authBtn.dataset.signedIn === "true") {
+    // ─── Sign Out ─────────────────────────────────────────
+    await signOut();
     await updateUserDisplay(null);
+
+    // Show guest tier/credits
+    const tier    = await getUserTier();
+    const credits = await getCredit();
+    userInfoEl.textContent += ` (Tier: ${tier}, Credits: ${credits})`;
   } else {
+    // ─── Sign In ──────────────────────────────────────────
     try {
-      const token = await getGoogleTokenViaLaunch(); // 로그인 시도
-      localStorage.setItem("googleToken", token);
-      await updateUserDisplay(token);
+      // Get fresh access & ID tokens
+      const accessToken = await signIn();
+
+      // Update UI with profile
+      await updateUserDisplay(accessToken);
+
+      // Sync or create Firestore user record
+      await syncUserData();
+
+      // Fetch real tier/credits from backend
+      const appUser = await getAppUserData();
+      userInfoEl.textContent +=
+        ` (Tier: ${appUser.tier}, Credits: ${appUser.creditsRemaining})`;
+
+      console.log("User data synced & loaded successfully");
     } catch (err) {
-      console.error("Google Sign-In failed:", err);
+      console.error("Sign-in flow failed:", err);
+
+      // Fallback to guest view
       await updateUserDisplay(null);
+      const tier    = await getUserTier();
+      const credits = await getCredit();
+      userInfoEl.textContent += ` (Tier: ${tier}, Credits: ${credits})`;
     }
   }
 });
 
+//
 // 언어 목록 정의
+//
 const languages = [
   { label: "Auto Detect", favorited: true, sourceOnly: true },
-  { label: "English", favorited: true },
-  { label: "Korean", favorited: true },
-  { label: "Japanese", favorited: false },
-  { label: "Chinese", favorited: false },
+  { label: "English",     favorited: true },
+  { label: "Korean",      favorited: true },
+  { label: "Japanese",    favorited: false },
+  { label: "Chinese",     favorited: false },
 ];
 
+//
 // 드롭다운 생성
+//
 function createDropdown(id, label, items, filterFn = () => true) {
   const container = document.getElementById(id);
-  const button = document.createElement("button");
+  const button    = document.createElement("button");
   button.className = "dropdown-btn";
   button.innerHTML = `${label} <i class="fas fa-chevron-down"></i>`;
 
@@ -121,56 +123,63 @@ function createDropdown(id, label, items, filterFn = () => true) {
 
   const filtered = items.filter(filterFn);
 
-  chrome.storage.local.get(["favorites", "sourceLang", "targetLang"], (data) => {
-    const key = id.includes("source") ? "sourceLang" : "targetLang";
-    const lastSelected = data[key];
+  chrome.storage.local.get(
+    ["favorites", "sourceLang", "targetLang"],
+    data => {
+      const key          = id.includes("source") ? "sourceLang" : "targetLang";
+      const lastSelected = data[key];
 
-    if (Array.isArray(data.favorites)) {
-      filtered.forEach(item => {
-        item.favorited = data.favorites.includes(item.label);
-      });
-    }
-
-    const render = () => {
-      list.innerHTML = "";
-      const sorted = [...filtered].sort((a, b) => b.favorited - a.favorited);
-      sorted.forEach(item => {
-        const div = document.createElement("div");
-        div.className = "dropdown-item";
-        div.innerHTML = `<span>${item.label}</span><i class="fas fa-star star-icon${item.favorited ? " favorited" : ""}"></i>`;
-
-        const star = div.querySelector(".star-icon");
-        star.addEventListener("click", e => {
-          e.stopPropagation();
-          item.favorited = !item.favorited;
-          const updated = filtered.filter(i => i.favorited).map(i => i.label);
-          chrome.storage.local.set({ favorites: updated });
-          render();
+      if (Array.isArray(data.favorites)) {
+        filtered.forEach(item => {
+          item.favorited = data.favorites.includes(item.label);
         });
+      }
 
-        div.addEventListener("click", () => {
-          button.innerHTML = `${item.label} <i class="fas fa-chevron-down"></i>`;
-          list.classList.remove("open");
-          chrome.storage.local.set({ [key]: item.label });
+      const render = () => {
+        list.innerHTML = "";
+        const sorted = [...filtered].sort((a, b) => b.favorited - a.favorited);
+        sorted.forEach(item => {
+          const div = document.createElement("div");
+          div.className = "dropdown-item";
+          div.innerHTML =
+            `<span>${item.label}</span>` +
+            `<i class="fas fa-star star-icon${item.favorited ? " favorited" : ""}"></i>`;
+
+          const star = div.querySelector(".star-icon");
+          star.addEventListener("click", e => {
+            e.stopPropagation();
+            item.favorited = !item.favorited;
+            const updated = filtered
+              .filter(i => i.favorited)
+              .map(i => i.label);
+            chrome.storage.local.set({ favorites: updated });
+            render();
+          });
+
+          div.addEventListener("click", () => {
+            button.innerHTML = `${item.label} <i class="fas fa-chevron-down"></i>`;
+            list.classList.remove("open");
+            chrome.storage.local.set({ [key]: item.label });
+          });
+
+          list.appendChild(div);
         });
+      };
 
-        list.appendChild(div);
-      });
-    };
+      if (lastSelected) {
+        button.innerHTML = `${lastSelected} <i class="fas fa-chevron-down"></i>`;
+      }
 
-    if (lastSelected) {
-      button.innerHTML = `${lastSelected} <i class="fas fa-chevron-down"></i>`;
+      render();
     }
+  );
 
-    render();
-  });
-
-  button.addEventListener("click", (event) => {
+  button.addEventListener("click", event => {
     event.stopPropagation();
     list.classList.toggle("open");
   });
 
-  document.addEventListener("click", (event) => {
+  document.addEventListener("click", event => {
     if (!list.contains(event.target)) list.classList.remove("open");
   });
 
@@ -178,32 +187,45 @@ function createDropdown(id, label, items, filterFn = () => true) {
   container.appendChild(list);
 }
 
+//
 // 선택된 언어 가져오기
+//
 function getSelectedLanguage(dropdownId) {
   const dropdown = document.getElementById(dropdownId);
-  const btn = dropdown?.querySelector(".dropdown-btn");
+  const btn      = dropdown?.querySelector(".dropdown-btn");
   return btn ? btn.innerText.trim() : null;
 }
 
-// 번역 버튼 처리
-document.getElementById("translate-btn")?.addEventListener("click", () => {
-  const targetLang = getSelectedLanguage("target-dropdown") || "Korean";
-  chrome.storage.local.get(["displayMode"], (data) => {
-    const mode = data.displayMode || "replace";
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (!tabs[0]?.id) return;
-      chrome.tabs.sendMessage(tabs[0].id, {
-        type: "translatePage",
-        targetLang,
-        mode,
-      }, (resp) => {
-        console.log("Translate response:", resp);
-      });
+//
+// Bind Translate Button
+//
+function bindTranslateButton() {
+  document.getElementById("translate-btn")?.addEventListener("click", () => {
+    const targetLang = getSelectedLanguage("target-dropdown") || "Korean";
+    chrome.storage.local.get(["displayMode"], data => {
+      const mode = data.displayMode || "replace";
+      chrome.tabs.query(
+        { active: true, currentWindow: true },
+        tabs => {
+          if (!tabs[0]?.id) return;
+          chrome.tabs.sendMessage(
+            tabs[0].id,
+            {
+              type:      "translatePage",
+              targetLang,
+              mode
+            },
+            resp => console.log("Translate response:", resp)
+          );
+        }
+      );
     });
   });
-});
+}
 
+//
 // 다크모드 토글 동기화
+//
 const darkToggle = document.getElementById("dark-toggle");
 if (darkToggle) {
   const syncTheme = () => {
@@ -214,14 +236,21 @@ if (darkToggle) {
   syncTheme();
 }
 
+//
 // 초기 UI 세팅
+//
 document.addEventListener("DOMContentLoaded", async () => {
   createDropdown("source-dropdown", "Select Language", languages);
-  createDropdown("target-dropdown", "Select Language", languages, item => !item.sourceOnly);
+  createDropdown(
+    "target-dropdown",
+    "Select Language",
+    languages,
+    item => !item.sourceOnly
+  );
 
   const displayModeSelect = document.getElementById("display-mode");
   if (displayModeSelect) {
-    chrome.storage.local.get(["displayMode"], (data) => {
+    chrome.storage.local.get(["displayMode"], data => {
       if (data.displayMode) displayModeSelect.value = data.displayMode;
     });
     displayModeSelect.addEventListener("change", () => {
@@ -229,11 +258,35 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  waitForUserServiceInit(() => {
-    const { initUserService } = window.userService;
-    initUserService(() => {});
+  waitForUserServiceInit((user, data) => {
+    // optional: use local userService data if needed
   });
 
-  const token = localStorage.getItem("googleToken");
-  await updateUserDisplay(token);
+  // Update UI based on existing token (if any)
+  const accessToken = localStorage.getItem("googleToken");
+  await updateUserDisplay(accessToken);
+
+  if (accessToken) {
+    // If signed in from before, try to show real user data
+    try {
+      const appUser = await getAppUserData();
+      document.getElementById("user-info").textContent +=
+        ` (Tier: ${appUser.tier}, Credits: ${appUser.creditsRemaining})`;
+    } catch (e) {
+      console.warn("Could not fetch app user data:", e);
+      const tier    = await getUserTier();
+      const credits = await getCredit();
+      document.getElementById("user-info").textContent +=
+        ` (Tier: ${tier}, Credits: ${credits})`;
+    }
+  } else {
+    // Guest
+    const tier    = await getUserTier();
+    const credits = await getCredit();
+    document.getElementById("user-info").textContent +=
+      ` (Tier: ${tier}, Credits: ${credits})`;
+  }
+
+  // Finally bind the translate button
+  bindTranslateButton();
 });
