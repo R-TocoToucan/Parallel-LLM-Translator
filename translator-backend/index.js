@@ -8,24 +8,14 @@ import admin from 'firebase-admin';
 import { OAuth2Client } from 'google-auth-library';
 import { PROMPTS, SYSTEM_MESSAGE } from './prompts.js';
 
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-// Compute __dirname under ESM
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
-
-// Load and parse the service account JSON at runtime
-const serviceAccount = JSON.parse(
-  fs.readFileSync(
-    path.join(__dirname, 'parallel-translator-firebase-adminsdk-fbsvc-7a12332bf0.json'),
-    'utf8'
-  )
-);
-
-// Load environment variables
+// Load environment variables (including FIREBASE_SERVICE_ACCOUNT)
 dotenv.config();
+
+// Parse service account from env var
+if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
+  throw new Error("Missing FIREBASE_SERVICE_ACCOUNT environment variable");
+}
+const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
 const app       = express();
 const PORT      = process.env.PORT || 3000;
