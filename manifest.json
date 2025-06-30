@@ -11,13 +11,11 @@
     "contextMenus",
     "scripting"
   ],
-  
   "host_permissions": [
     "https://api.openai.com/",
     "https://parallel-llm-translator.onrender.com/*",
     "http://localhost:3000/"
   ],
-
   "oauth2": {
     "client_id": "277604934909-g4k6ndulm1tuhosglhiaegsebs9q1omq.apps.googleusercontent.com",
     "scopes": [
@@ -25,15 +23,12 @@
       "https://www.googleapis.com/auth/userinfo.profile"
     ]
   },
-
   "action": {
     "default_popup": "main.html"
   },
-
   "background": {
     "service_worker": "background.js"
   },
-
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
@@ -41,7 +36,6 @@
       "run_at": "document_idle"
     }
   ],
-  
   "web_accessible_resources": [
     {
       "resources": [
@@ -51,12 +45,13 @@
         "main.js",
         "styles.css",
         "firebaseInit.js",
-        "lib/firebase/*"
+        "lib/firebase/*",
+        "dictionary.html",
+        "dictionary.js"
       ],
       "matches": ["<all_urls>"]
     }
   ],
-  
   "commands": {
     "togglePopup": {
       "suggested_key": {
@@ -65,8 +60,12 @@
       "description": "Show translation popup"
     }
   },
-
   "options_page": "settings.html",
+
+  "side_panel": {
+    "default_path": "dictionary.html",
+    "enabled": false
+  },
 
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.googleapis.com https://*.gstatic.com https://parallel-llm-translator.onrender.com"

@@ -1,126 +1,97 @@
-document.addEventListener('DOMContentLoaded', () => {
-  const uiLang = document.getElementById('ui-lang-select');
-  const model = document.getElementById('model-select');
-  const userInfo = document.getElementById('user-info');
+// settings.js
+
+import {
+  signIn,
+  signOut,
+  getProfile,
+  syncUserData,
+  getAppUserData
+} from './authService.js';
+
+document.addEventListener('DOMContentLoaded', async () => {
+  // Elements
+  const userInfo   = document.getElementById('user-info');
   const creditInfo = document.getElementById('credit-info');
-  const authBtn = document.getElementById('auth-toggle');
-  const dictBtn = document.getElementById('manage-dictionary');
+  const authBtn    = document.getElementById('auth-toggle');
+  const modelSel   = document.getElementById('model-select');
+  const uiLangSel  = document.getElementById('ui-lang-select');
+  const manageBtn  = document.getElementById('manage-dictionary');
 
-  // Load preferences from localStorage
-  uiLang.value = localStorage.getItem('uiLang') || 'en';
-  model.value = localStorage.getItem('translationModel') || 'gpt-3.5-turbo';
-
-  uiLang.addEventListener('change', () => localStorage.setItem('uiLang', uiLang.value));
-  model.addEventListener('change', () => localStorage.setItem('translationModel', model.value));
-
-  // Personal Dictionary
-  dictBtn.addEventListener('click', () => {
-    alert('Dictionary manager not implemented yet.');
-  });
-
-  // Fetch user profile info from Google
-  async function fetchGoogleProfile(token) {
-    try {
-      const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error("Profile fetch failed");
-      return await res.json();
-    } catch (err) {
-      console.error("Error fetching profile:", err);
-      return null;
-    }
+  // Helper to swap classes
+  function swapClass(el, from, to) {
+    if (!el.classList.replace(from, to)) el.classList.add(to);
   }
 
-  // Fetch credit info from backend
-  function fetchCredits(token) {
-    fetch('https://parallel-llm-translator.onrender.com/user/credits', {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => res.json())
-      .then(data => {
-        creditInfo.textContent = `Remaining Credits: ${data.credits || 0}`;
-      })
-      .catch(() => {
-        creditInfo.textContent = 'Could not load credits';
-      });
-  }
-
-  // Update auth button UI
-  function updateAuthUI(signedIn, profile) {
-    if (signedIn) {
+  // Update account section UI
+  async function updateAccountUI(token) {
+    if (token) {
+      const profile = await getProfile(token);
+      userInfo.textContent = `Signed in as ${profile.name || profile.email}`;
+      swapClass(authBtn, 'auth-sign-in', 'auth-sign-out');
       authBtn.textContent = 'Sign Out';
       authBtn.dataset.signedIn = 'true';
-      authBtn.style.display = 'block';
-      userInfo.textContent = `Signed in as ${profile.name || profile.email}`;
+
+      await syncUserData(token);
+      const me = await getAppUserData(token);
+      creditInfo.textContent = `Remaining Credits: ${me.creditsRemaining}`;
     } else {
-      authBtn.textContent = 'Sign In';
-      authBtn.dataset.signedIn = 'false';
       userInfo.textContent = 'Not signed in';
       creditInfo.textContent = '';
+      swapClass(authBtn, 'auth-sign-out', 'auth-sign-in');
+      authBtn.textContent = 'Sign In';
+      authBtn.dataset.signedIn = 'false';
     }
   }
 
-  // Handle Sign In / Sign Out toggle
-  authBtn.addEventListener('click', () => {
-    const isSignedIn = authBtn.dataset.signedIn === 'true';
+  // Load & save preferences
+  chrome.storage.local.get(
+    ['translationModel', 'uiLang'],
+    prefs => {
+      modelSel.value  = prefs.translationModel || 'gpt-3.5-turbo';
+      uiLangSel.value = prefs.uiLang           || 'en';
+    }
+  );
+  modelSel.addEventListener('change', () =>
+    chrome.storage.local.set({ translationModel: modelSel.value })
+  );
+  uiLangSel.addEventListener('change', () =>
+    chrome.storage.local.set({ uiLang: uiLangSel.value })
+  );
 
-    if (isSignedIn) {
-      // Sign Out
-      const token = localStorage.getItem("googleToken");
-      if (token) {
-        chrome.identity.removeCachedAuthToken({ token }, () => {
-          console.log("Token removed.");
-        });
-      }
-      localStorage.removeItem("googleToken");
-      updateAuthUI(false, {});
+  // Auth button logic
+  authBtn.addEventListener('click', async () => {
+    if (authBtn.dataset.signedIn === 'true') {
+      await signOut();
+      localStorage.removeItem('googleToken');
+      await updateAccountUI(null);
     } else {
-      // Force new sign-in by invalidating any cached token first
-      chrome.identity.getAuthToken({ interactive: false }, (oldToken) => {
-        if (oldToken) {
-          chrome.identity.removeCachedAuthToken({ token: oldToken }, () => {
-            getNewToken();
-          });
-        } else {
-          getNewToken();
-        }
-      });
+      try {
+        const token = await signIn();
+        localStorage.setItem('googleToken', token);
+        await updateAccountUI(token);
+      } catch {
+        await updateAccountUI(null);
+      }
     }
   });
 
-  // Request new token and fetch profile
-  function getNewToken() {
-    chrome.identity.getAuthToken({ interactive: true }, async (token) => {
-      if (!token) {
-        userInfo.textContent = 'Sign-in failed';
-        return;
-      }
+  // Initialize account UI on load
+  const existing = localStorage.getItem('googleToken');
+  await updateAccountUI(existing);
 
-      localStorage.setItem("googleToken", token);
-      const profile = await fetchGoogleProfile(token);
-      if (profile) {
-        updateAuthUI(true, profile);
-        fetchCredits(token);
-      } else {
-        userInfo.textContent = 'Signed in';
-        fetchCredits(token);
-      }
-    });
-  }
+  // ───────────────────────────────────────────────────────────
+  // Manage Dictionary → open side panel instead of new window
+  // ───────────────────────────────────────────────────────────
+  manageBtn.addEventListener('click', () => {
+    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+      const tabId = tabs[0]?.id;
+      if (!tabId) return;
 
-  // On load: check if already signed in
-  const existingToken = localStorage.getItem("googleToken");
-  if (existingToken) {
-    fetchGoogleProfile(existingToken).then(profile => {
-      if (profile) {
-        updateAuthUI(true, profile);
-        fetchCredits(existingToken);
-      } else {
-        updateAuthUI(false, {});
-      }
+      // Point the panel at dictionary.html and enable it, then show
+      chrome.sidePanel.setOptions(
+        { tabId, path: 'dictionary.html', enabled: true },
+        () => chrome.sidePanel.open({ tabId })
+      );
     });
-  } else {
-    updateAuthUI(false, {});
-  }
+  });
 });

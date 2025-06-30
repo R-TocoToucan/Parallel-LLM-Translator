@@ -2,53 +2,61 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Settings</title>
-  <link rel="stylesheet" href="styles.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Translator Settings</title>
+  <link rel="stylesheet" href="styles.css"/>
 </head>
 <body>
   <div class="container">
     <div class="header">Settings</div>
 
-    <!-- Account Info / 계정 정보 -->
+    <!-- Account Info -->
     <section>
       <h3>Account</h3>
-      <p id="user-info">Loading user info...</p>
-      <p id="credit-info" style="font-size: 0.9em; color: #aaa;">Checking credit...</p>
-      <button id="auth-toggle" class="settings-btn" data-signed-in="false">Sign In</button>
+      <p id="user-info">Loading user info…</p>
+      <p id="credit-info" class="subtle">Checking credit…</p>
+      <button
+        id="auth-toggle"
+        class="settings-btn auth-sign-in"
+        data-signed-in="false"
+      >
+        Sign In
+      </button>
     </section>
 
-    <!-- Model Selection / 모델 선택 -->
+    <!-- Model Selection -->
     <section>
       <h3>Model</h3>
-      <label for="model-select">Model</label>
-      <select id="model-select">
+      <label for="model-select">Choose model:</label>
+      <select id="model-select" class="provider-select">
         <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
         <option value="gpt-4">GPT-4</option>
       </select>
     </section>
 
-    <!-- UI Language / UI 언어 설정 -->
+    <!-- UI Language -->
     <section>
       <h3>Interface</h3>
-      <label for="ui-lang-select">Display Language</label>
-      <select id="ui-lang-select">
+      <label for="ui-lang-select">Display language:</label>
+      <select id="ui-lang-select" class="provider-select">
         <option value="en">English</option>
         <option value="ko">Korean</option>
         <option value="ja">Japanese</option>
       </select>
     </section>
 
-    <!-- Personal Dictionary / 사용자 사전 -->
+    <!-- Personal Dictionary Launcher -->
     <section>
       <h3>Personal Dictionary</h3>
-      <button id="manage-dictionary" class="settings-btn">Manage Dictionary</button>
+      <button id="manage-dictionary" class="settings-btn">
+        Manage Dictionary
+      </button>
     </section>
 
-    <!-- Back to main.html -->
-    <a href="main.html" class="settings-btn">Back to Translator</a>
+    <!-- Back to Translator Main -->
+    <a href="main.html" class="settings-btn">← Back to Translator</a>
   </div>
 
-  <script src="settings.js"></script>
+  <script type="module" src="settings.js"></script>
 </body>
 </html>

@@ -23,12 +23,7 @@ const API_KEY   = process.env.OPENAI_API_KEY;
 const CLIENT_ID = process.env.GOOGLE_WEB_CLIENT_ID;
 
 // Restrict CORS to only your extension and localhost
-app.use(cors({
-  origin: [
-    'chrome-extension://jbhfnjlhhbmikligiaicjbcfhladebda',
-    'http://localhost:3000'
-  ]
-}));
+app.use(cors());
 app.use(express.json());
 
 // Initialize Google OAuth2 client

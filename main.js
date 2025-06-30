@@ -33,20 +33,19 @@ async function updateUserDisplay(accessToken) {
   const authBtn    = document.getElementById("auth-btn");
   if (!userInfoEl || !authBtn) return;
 
-  authBtn.classList.remove("auth-sign-in", "auth-sign-out");
   if (accessToken) {
     // Signed in: show profile name/email
     const profile     = await getProfile(accessToken);
     const displayName = profile.name || profile.email || "Signed in";
     userInfoEl.textContent   = `Signed in as ${displayName}`;
     authBtn.textContent      = "Sign Out";
-    authBtn.classList.add("auth-sign-out");
+    authBtn.classList.replace("auth-sign-in", "auth-sign-out");
     authBtn.dataset.signedIn = "true";
   } else {
     // Not signed in
     userInfoEl.textContent   = "Not signed in";
     authBtn.textContent      = "Sign In";
-    authBtn.classList.add("auth-sign-in");
+    authBtn.classList.replace("auth-sign-out", "auth-sign-in");
     authBtn.dataset.signedIn = "false";
   }
 }
@@ -198,28 +197,29 @@ function getSelectedLanguage(dropdownId) {
 
 //
 // Bind Translate Button
-//
+// Bind Translate Button
 function bindTranslateButton() {
   document.getElementById("translate-btn")?.addEventListener("click", () => {
     const targetLang = getSelectedLanguage("target-dropdown") || "Korean";
-    chrome.storage.local.get(["displayMode"], data => {
-      const mode = data.displayMode || "replace";
-      chrome.tabs.query(
-        { active: true, currentWindow: true },
-        tabs => {
-          if (!tabs[0]?.id) return;
-          chrome.tabs.sendMessage(
-            tabs[0].id,
-            {
-              type:      "translatePage",
-              targetLang,
-              mode
-            },
-            resp => console.log("Translate response:", resp)
-          );
-        }
-      );
-    });
+    chrome.storage.local.get(
+      ["displayMode", "translationModel"],
+      data => {
+        const mode  = data.displayMode  || "replace";
+        const model = data.translationModel || "gpt-3.5-turbo";
+
+        chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+          const tabId = tabs[0]?.id;
+          if (!tabId) return;
+
+          chrome.tabs.sendMessage(tabId, {
+            type: "translatePage",
+            targetLang,
+            mode,
+            model
+          });
+        });
+      }
+    );
   });
 }
 

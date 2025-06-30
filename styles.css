@@ -380,3 +380,63 @@ body.light .original-text {
 body.light .translated-text {
   color: #000;
 }
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.tab {
+  flex: 1;
+  padding: 8px;
+  text-align: center;
+  cursor: pointer;
+  background: #3c3c3c;
+  color: #fff;
+  border-radius: 6px;
+}
+.tab.selected {
+  background: #219653;
+}
+
+/* Panels */
+.panel {
+  display: none;
+}
+.panel.active {
+  display: block;
+}
+
+/* Dictionary container rows */
+.dict-container > div {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+/* Inputs in dictionary panel */
+.term-input,
+.repl-input {
+  flex: 1;
+  padding: 6px;
+  border-radius: 4px;
+  border: none;
+  background: #3c3c3c;
+  color: #fff;
+}
+
+/* Remove button in dictionary panel */
+.remove-btn {
+  background-color: #a33;
+  color: #fff;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* Add-entry spacing */
+#add-entry-btn {
+  margin-top: 12px;
+}
