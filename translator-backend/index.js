@@ -1,257 +1,294 @@
-// index.js
-
+// index.js – backend (Node / Express)
+/* ───────────────────────────────────────────────────────────────
+ *  Imports & basic setup
+ * ─────────────────────────────────────────────────────────────── */
 import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import fetch from 'node-fetch';
-import admin from 'firebase-admin';
+import cors    from 'cors';
+import dotenv  from 'dotenv';
+import fetch   from 'node-fetch';
+import admin   from 'firebase-admin';
 import { OAuth2Client } from 'google-auth-library';
+
 import { PROMPTS, SYSTEM_MESSAGE } from './prompts.js';
 
-// Load environment variables (including FIREBASE_SERVICE_ACCOUNT)
 dotenv.config();
 
-// Parse service account from env var
-if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
-  throw new Error("Missing FIREBASE_SERVICE_ACCOUNT environment variable");
-}
+/* ───── secrets from env ───── */
+if (!process.env.FIREBASE_SERVICE_ACCOUNT)
+  throw new Error('Missing FIREBASE_SERVICE_ACCOUNT');
+
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+const API_KEY        = process.env.OPENAI_API_KEY;
+const CLIENT_ID      = process.env.GOOGLE_WEB_CLIENT_ID;
+const ADMIN_SECRET   = process.env.ADMIN_SECRET;
 
-const app       = express();
-const PORT      = process.env.PORT || 3000;
-const API_KEY   = process.env.OPENAI_API_KEY;
-const CLIENT_ID = process.env.GOOGLE_WEB_CLIENT_ID;
+/* ───── express basic ───── */
+const app  = express();
+const PORT = process.env.PORT || 3000;
 
-// Restrict CORS to only your extension and localhost
 app.use(cors());
 app.use(express.json());
 
-// Initialize Google OAuth2 client
+/* ───── Firebase Admin & Google OAuth verify ───── */
+admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+const db           = admin.firestore();
 const googleClient = new OAuth2Client(CLIENT_ID);
 
-// Firebase Admin init
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
-const db = admin.firestore();
+/* ───────────────────────────────────────────────────────────────
+ *  Constants – quotas & allowed models
+ * ─────────────────────────────────────────────────────────────── */
+const WEEKLY_QUOTA = {           // 100-token credits
+  free   : 10_000,               // was 1 000
+  premium: 500_000,              // was 50 000
+  team   : 2_000_000             // was 200 000
+};
+const quotaForTier = t => WEEKLY_QUOTA[t] ?? WEEKLY_QUOTA.free;
 
-/**
- * Middleware: verify incoming Bearer ID token (must be ID token)
- */
+const ALLOWED_MODELS = ['gpt-4o-mini', 'gpt-3.5-turbo', 'gpt-4o'];
+
+/* ───────────────────────────────────────────────────────────────
+ *  Middleware – verify Google ID-token (Bearer)
+ * ─────────────────────────────────────────────────────────────── */
 async function verifyIdToken(req, res, next) {
-  const auth = req.headers.authorization || '';
-  const match = auth.match(/^Bearer (.+)$/);
-  if (!match) {
-    return res.status(401).json({ error: 'Missing or malformed Authorization header' });
-  }
+  const m = (req.headers.authorization || '').match(/^Bearer (.+)$/);
+  if (!m) return res.status(401).json({ error: 'Missing Authorization' });
   try {
-    const ticket = await googleClient.verifyIdToken({
-      idToken: match[1],
-      audience: CLIENT_ID
-    });
-    const payload = ticket.getPayload();
-    req.uid   = payload.sub;
-    req.email = payload.email;
+    const ticket  = await googleClient.verifyIdToken({ idToken: m[1], audience: CLIENT_ID });
+    const p = ticket.getPayload();
+    req.uid   = p.sub;
+    req.email = p.email;
     next();
   } catch (err) {
-    console.error('ID token verification failed:', err);
+    console.error('verifyIdToken', err);
     res.status(401).json({ error: 'Invalid ID token' });
   }
 }
 
-/**
- * POST /api/user
- * Upsert the signed-in user’s record in Firestore
- */
+/* ───────────────────────────────────────────────────────────────
+ *  Helper – weekly rolling refresh (users idle ≥ 7 days)
+ * ─────────────────────────────────────────────────────────────── */
+async function refreshOldUsers() {
+  const cutoffMs = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const cutoffTs = admin.firestore.Timestamp.fromMillis(cutoffMs);
+
+  const snap = await db.collection('users').where('lastRefresh', '<=', cutoffTs).get();
+  if (snap.empty) return;
+
+  const batch = db.batch();
+  const nowTs = admin.firestore.Timestamp.now();
+
+  snap.forEach(doc => {
+    const tier  = doc.data().tier || 'free';
+    batch.update(doc.ref, { credit: quotaForTier(tier), lastRefresh: nowTs });
+  });
+
+  await batch.commit();
+  console.log(`[RollingRefresh] reset ${snap.size} users`);
+}
+
+/* ───────────────────────────────────────────────────────────────
+ *  Helper – monthly hard reset (1st of month UTC)
+ * ─────────────────────────────────────────────────────────────── */
+async function resetMonthlyCredits() {
+  const FREE_CREDITS = 3_000;
+  const PLUS_CREDITS = 30_000;
+
+  const snap = await db.collection('users').get();
+  if (snap.empty) return;
+
+  const batch = db.batch();
+  snap.forEach(doc => {
+    const tier = doc.data().tier ?? 'free';
+    const amt  = tier === 'plus' ? PLUS_CREDITS : FREE_CREDITS;
+    batch.update(doc.ref, { credit: amt });
+  });
+
+  await batch.commit();
+  console.log(`[MonthlyReset] set ${snap.size} users → ${FREE_CREDITS}/${PLUS_CREDITS}`);
+}
+
+/* ───────────────────────────────────────────────────────────────
+ *  Secure admin endpoints for cron jobs
+ * ─────────────────────────────────────────────────────────────── */
+function adminGuard(req, res, next) {
+  if (req.headers['x-admin-secret'] !== ADMIN_SECRET)
+    return res.status(403).json({ error: 'Forbidden' });
+  next();
+}
+
+app.post('/admin/rolling_refresh', adminGuard, async (req, res) => {
+  try       { await refreshOldUsers(); res.json({ ok: true }); }
+  catch (e) { console.error('rolling_refresh', e); res.status(500).json({ error: 'refresh failed' }); }
+});
+
+app.post('/admin/monthly_reset', adminGuard, async (req, res) => {
+  try       { await resetMonthlyCredits(); res.json({ ok: true }); }
+  catch (e) { console.error('monthly_reset', e); res.status(500).json({ error: 'reset failed' }); }
+});
+
+/* ───────────────────────────────────────────────────────────────
+ *  POST /api/user – upsert user record
+ * ─────────────────────────────────────────────────────────────── */
 app.post('/api/user', verifyIdToken, async (req, res) => {
-  const { tier, creditsRemaining, lastUpdated } = req.body;
-  if (
-    typeof tier !== 'string' ||
-    typeof creditsRemaining !== 'number' ||
-    typeof lastUpdated !== 'string'
-  ) {
-    return res.status(400).json({ error: 'Invalid body fields' });
-  }
+  const { tier, lastUpdated } = req.body;
+  if (typeof tier !== 'string' || typeof lastUpdated !== 'string')
+    return res.status(400).json({ error: 'Invalid body' });
+
   try {
-    await db.collection('users').doc(req.uid).set({
-      email:       req.email,
+    const ref  = db.collection('users').doc(req.uid);
+    const snap = await ref.get();
+    const now  = admin.firestore.Timestamp.now();
+
+    await ref.set({
+      email      : req.email,
       tier,
-      credit:      creditsRemaining,
-      lastUpdated: admin.firestore.Timestamp.fromDate(new Date(lastUpdated))
+      credit     : snap.exists ? snap.data().credit : quotaForTier(tier),
+      createdAt  : snap.exists ? snap.data().createdAt : now,
+      lastUpdated: admin.firestore.Timestamp.fromDate(new Date(lastUpdated)),
+      lastRefresh: snap.exists ? snap.data().lastRefresh || now : now
     }, { merge: true });
+
     res.json({ success: true });
   } catch (err) {
-    console.error('Error writing user:', err);
+    console.error('POST /api/user', err);
     res.status(500).json({ error: 'Could not write user data' });
   }
 });
 
-/**
- * GET /api/user/me
- * Fetch the current user’s stored metadata
- */
+/* ───────────────────────────────────────────────────────────────
+ *  GET /api/user/me
+ * ─────────────────────────────────────────────────────────────── */
 app.get('/api/user/me', verifyIdToken, async (req, res) => {
   try {
     const snap = await db.collection('users').doc(req.uid).get();
-    if (!snap.exists) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    const data = snap.data();
+    if (!snap.exists) return res.status(404).json({ error: 'User not found' });
+    const d = snap.data();
     res.json({
-      uid:              req.uid,
-      email:            req.email,
-      tier:             data.tier,
-      creditsRemaining: data.credit,
-      lastUpdated:      data.lastUpdated.toDate().toISOString()
+      uid             : req.uid,
+      email           : req.email,
+      tier            : d.tier,
+      creditsRemaining: d.credit,
+      lastUpdated     : d.lastUpdated?.toDate().toISOString() || null
     });
   } catch (err) {
-    console.error('Error reading user:', err);
+    console.error('GET /api/user/me', err);
     res.status(500).json({ error: 'Could not read user data' });
   }
 });
 
-/**
- * Secure, atomic model resolution with Firestore transaction
- */
-async function getModelForRequest(uid) {
-  if (!uid) return 'gpt-3.5-turbo';
+/* ───────────────────────────────────────────────────────────────
+ *  POST /api/consume – atomic credit deduction
+ * ─────────────────────────────────────────────────────────────── */
+app.post('/api/consume', verifyIdToken, async (req, res) => {
+  const amount = Math.max(1, parseInt(req.body.amount ?? 1, 10));
   try {
-    return await db.runTransaction(async tx => {
-      const ref  = db.collection('users').doc(uid);
+    const remaining = await db.runTransaction(async tx => {
+      const ref  = db.collection('users').doc(req.uid);
       const snap = await tx.get(ref);
-      const data = snap.exists ? snap.data() : null;
-      const credit = data?.credit ?? 0;
-
-      if (credit > 0) {
-        tx.update(ref, { credit: admin.firestore.FieldValue.increment(-1) });
-        return 'gpt-4';
-      } else {
-        return 'gpt-3.5-turbo';
-      }
+      if (!snap.exists) throw new Error('User missing');
+      const current = snap.data().credit ?? 0;
+      if (current < amount) return null;
+      tx.update(ref, { credit: admin.firestore.FieldValue.increment(-amount) });
+      return current - amount;
     });
+    if (remaining === null)
+      return res.status(402).json({ error: 'Insufficient credits' });
+    res.json({ creditsRemaining: remaining });
   } catch (err) {
-    console.error('Error in credit transaction:', err);
-    return 'gpt-3.5-turbo';
+    console.error('/api/consume', err);
+    res.status(500).json({ error: 'consume failed' });
   }
-}
+});
 
-/**
- * Call OpenAI Chat Completion
- */
+/* ───────────────────────────────────────────────────────────────
+ *  OpenAI chat helper
+ * ─────────────────────────────────────────────────────────────── */
 async function callOpenAI({ system, user, model }) {
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
+  const r = await fetch('https://api.openai.com/v1/chat/completions', {
+    method : 'POST',
     headers: {
-      "Authorization": `Bearer ${API_KEY}`,
-      "Content-Type":  "application/json"
+      Authorization: `Bearer ${API_KEY}`,
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify({
       model,
       messages: [
-        { role: "system", content: system },
-        { role: "user",   content: user }
+        { role: 'system', content: system },
+        { role: 'user',   content: user }
       ],
       temperature: 0.3
     })
   });
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content?.trim() || null;
+  const d = await r.json();
+  return d.choices?.[0]?.message?.content?.trim() || null;
 }
 
-/**
- * Helper to create LLM routes
- */
+/* ───────────────────────────────────────────────────────────────
+ *  Factory to create text-only LLM endpoints
+ * ─────────────────────────────────────────────────────────────── */
 function createLLMRoute(path, promptBuilder) {
-  app.post(path, async (req, res) => {
-    const { text, language, uid } = req.body;
-    console.log(`[${path.toUpperCase()}]`, { textLength: text?.length, language, uid });
-    if (
-      typeof text !== "string" || !text ||
-      typeof language !== "string" || !language
-    ) {
-      return res.status(400).json({ error: 'Invalid input types.' });
-    }
-    const userPrompt = promptBuilder(text, language);
+  app.post(path, verifyIdToken, async (req, res) => {
+    const { text, language, model = 'gpt-4o-mini' } = req.body;
+    if (typeof text !== 'string' || !text || typeof language !== 'string')
+      return res.status(400).json({ error: 'Invalid input' });
+    if (!ALLOWED_MODELS.includes(model))
+      return res.status(400).json({ error: 'Model not allowed' });
+
     try {
-      const model    = await getModelForRequest(uid);
-      const response = await callOpenAI({ system: SYSTEM_MESSAGE, user: userPrompt, model });
-      res.json({ result: response });
+      const prompt = promptBuilder(text, language);
+      const reply  = await callOpenAI({ system: SYSTEM_MESSAGE, user: prompt, model });
+      res.json({ result: reply });
     } catch (err) {
-      console.error(`Error in ${path}:`, err);
-      res.status(500).json({ error: 'OpenAI request failed.' });
+      console.error(`${path} error`, err);
+      res.status(500).json({ error: 'OpenAI failed' });
     }
   });
 }
 
-// Generic LLM routes
+/* generic text endpoints */
 createLLMRoute('/translate', PROMPTS.translate);
 createLLMRoute('/explain',   PROMPTS.explain_phrase);
 createLLMRoute('/enhance',   PROMPTS.enhance_text);
 createLLMRoute('/summarize', PROMPTS.summarize_webpage);
 
-// Full-page translation
-app.post('/translate_webpage', async (req, res) => {
-  const { ids, texts, language, uid } = req.body;
-  console.log('[TRANSLATE_WEBPAGE]', {
-    idsCount:   Array.isArray(ids) ? ids.length : null,
-    textsCount: Array.isArray(texts) ? texts.length : null,
-    language,
-    uid
-  });
-  if (
-    !Array.isArray(ids) ||
-    !Array.isArray(texts) ||
-    ids.length !== texts.length ||
-    texts.some(t => typeof t !== 'string') ||
-    typeof language !== 'string' ||
-    !language
-  ) {
-    return res.status(400).json({
-      error: 'Invalid input: expected { ids: number[], texts: string[], language: string }'
-    });
-  }
-  const userPrompt = PROMPTS.translate_webpage(ids, texts, language);
-  let reply;
+/* ───────────────────────────────────────────────────────────────
+ *  Bulk translate_webpage endpoint
+ * ─────────────────────────────────────────────────────────────── */
+app.post('/translate_webpage', verifyIdToken, async (req, res) => {
+  const { ids, texts, language, model = 'gpt-4o-mini' } = req.body;
+  if (!Array.isArray(ids) || !Array.isArray(texts) ||
+      ids.length !== texts.length || typeof language !== 'string')
+    return res.status(400).json({ error: 'Invalid body structure' });
+  if (!ALLOWED_MODELS.includes(model))
+    return res.status(400).json({ error: 'Model not allowed' });
+
   try {
-    const model = await getModelForRequest(uid);
-    reply = await callOpenAI({ system: SYSTEM_MESSAGE, user: userPrompt, model });
-  } catch (err) {
-    console.error('Error calling OpenAI for /translate_webpage:', err);
-    return res.status(500).json({ error: 'OpenAI request failed.' });
-  }
-  let parsed;
-  try {
-    parsed = JSON.parse(reply);
-  } catch {
-    const match = reply.match(/\{[\s\S]*\}/);
-    if (match) {
-      try {
-        parsed = JSON.parse(match[0]);
-      } catch (e) {
-        console.error('Fallback JSON parse failed:', match[0], e);
-        return res.status(500).json({ error: 'Invalid JSON from LLM.' });
-      }
-    } else {
-      console.error('No JSON object found in LLM reply:', reply);
-      return res.status(500).json({ error: 'No JSON in LLM reply.' });
+    const prompt = PROMPTS.translate_webpage(ids, texts, language);
+    const raw    = await callOpenAI({ system: SYSTEM_MESSAGE, user: prompt, model });
+
+    /* robust JSON parse */
+    let parsed;
+    try       { parsed = JSON.parse(raw); }
+    catch (e) {
+      const m = raw.match(/\{[\s\S]*\}/);
+      if (!m) throw new Error('No JSON object');
+      parsed = JSON.parse(m[0]);
     }
+
+    const outputs = parsed.outputs ?? parsed.translations;
+    if (!Array.isArray(outputs) || outputs.length !== texts.length)
+      throw new Error('Wrong JSON structure');
+
+    res.json({ translations: outputs });
+  } catch (err) {
+    console.error('/translate_webpage', err);
+    res.status(500).json({ error: 'translation failed' });
   }
-  const outputs = Array.isArray(parsed.outputs)
-    ? parsed.outputs
-    : Array.isArray(parsed.translations)
-      ? parsed.translations
-      : null;
-  if (!outputs) {
-    console.error('LLM JSON missing "outputs" or "translations":', parsed);
-    return res.status(500).json({ error: 'LLM returned unexpected JSON structure.' });
-  }
-  if (outputs.length !== texts.length) {
-    console.error('Length mismatch: expected', texts.length, 'got', outputs.length);
-    return res.status(500).json({ error: 'LLM returned wrong number of items.' });
-  }
-  res.json({ translations: outputs });
 });
 
+/* ───────────────────────────────────────────────────────────────
+ *  Start server
+ * ─────────────────────────────────────────────────────────────── */
 app.listen(PORT, () => {
-  console.log(`Translator backend is running on http://localhost:${PORT}`);
+  console.log(`Translator backend running on http://localhost:${PORT}`);
 });

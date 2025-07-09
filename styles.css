@@ -400,43 +400,164 @@ body.light .translated-text {
   background: #219653;
 }
 
-/* Panels */
-.panel {
-  display: none;
-}
-.panel.active {
-  display: block;
+/* =========== dictionary page =========== */
+.dictionary-page {
+  margin: 0;
+  background: #111;
+  color: #fff;
+  font-family: system-ui, sans-serif;
 }
 
-/* Dictionary container rows */
-.dict-container > div {
+/* top bar */
+.dict-header {
   display: flex;
-  gap: 8px;
-  margin-bottom: 8px;
+  align-items: center;
+  justify-content: space-between;
+  background: #16a34a;            /* same green as buttons elsewhere */
+  padding: 0.5rem 1rem;
 }
 
-/* Inputs in dictionary panel */
-.term-input,
-.repl-input {
-  flex: 1;
-  padding: 6px;
-  border-radius: 4px;
-  border: none;
-  background: #3c3c3c;
-  color: #fff;
+/* centred title */
+.dict-title {
+  flex: 1 1 auto;
+  margin: 0;
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 600;
 }
 
-/* Remove button in dictionary panel */
-.remove-btn {
-  background-color: #a33;
+/* arrow / plus buttons */
+.icon-btn {
+  all: unset;
+  width: 2rem;
+  height: 2rem;
+  line-height: 2rem;
+  text-align: center;
+  font-size: 1.25rem;
   color: #fff;
-  border: none;
-  padding: 6px 10px;
-  border-radius: 4px;
   cursor: pointer;
 }
+.icon-btn:active { transform: scale(0.9); }
 
-/* Add-entry spacing */
-#add-entry-btn {
-  margin-top: 12px;
+/* dictionary container & rows */
+.dict-container {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dict-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #1e1e1e;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+}
+.dict-row input {
+  flex: 1 1 45%;
+  background: #000;
+  border: 1px solid #444;
+  border-radius: 0.25rem;
+  color: #fff;
+  padding: 0.35rem 0.5rem;
+}
+.dict-row span       { color: #bbb; }
+.dict-row .remove-btn{
+  all: unset;
+  cursor: pointer;
+  font-size: 1rem;
+  color: #f87171;
+}
+
+/* dictionary page takes full height */
+.dictionary-page {
+  margin: 0;
+  background: #111;
+  color: #fff;
+  font-family: system-ui, sans-serif;
+
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  overflow: hidden;     /* hard-stop any accidental scrollbars */
+}
+
+/* top bar */
+.dict-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #16a34a;
+  padding: 0.5rem;
+}
+
+/* centred title */
+.dict-title {
+  flex: 1 1 auto;
+  margin: 0;
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+/* arrow / plus buttons */
+.icon-btn {
+  all: unset;
+  width: 1.75rem;
+  height: 1.75rem;
+  line-height: 1.75rem;
+  text-align: center;
+  font-size: 1.3rem;
+  color: #fff;
+  cursor: pointer;
+}
+.icon-btn:active { transform: scale(0.9); }
+
+/* scrollable list (vertical only) */
+.dict-container {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  box-sizing: border-box;
+}
+
+/* one row */
+.dict-row {
+  display: flex;
+  align-items: center;
+  width: 100%;          /* ← keep inside the popup width */
+  gap: 0.5rem;
+
+  background: #1e1e1e;
+  padding: 0.5rem;
+  border-radius: 6px;
+}
+
+/* inputs flex evenly, shrink if needed – no horizontal scroll */
+.dict-row input {
+  flex: 1 1 0;
+  min-width: 0;
+
+  background: #000;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #fff;
+  padding: 0.35rem 0.5rem;
+}
+
+.dict-row span       { color: #bbb; }
+
+.dict-row .remove-btn {
+  all: unset;
+  cursor: pointer;
+  font-size: 1.25rem;
+  color: #f87171;
+  padding: 0 0.6rem;     /* good hit area */
 }

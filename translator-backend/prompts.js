@@ -1,18 +1,46 @@
-// prompts.js
+// prompts.js  – full file with glossary support
 
-// This system prompt sets the assistant’s role for all LLM calls.
+/* ──────────────────────────────────────────────────────────────
+ *  System prompt
+ * ────────────────────────────────────────────────────────────── */
 export const SYSTEM_MESSAGE = `
 You are a professional translator. Follow instructions exactly and output only the requested content.
 `.trim();
 
+/* ──────────────────────────────────────────────────────────────
+ *  Helper – insert a precise glossary section when needed
+ * ────────────────────────────────────────────────────────────── */
+function glossaryBlock(glossary) {
+  if (!Array.isArray(glossary) || !glossary.length) return '';
+
+  const lines = glossary
+    .map(({ term, replacement }) => `  • ${term} → ${replacement}`)
+    .join('\n');
+
+  return `
+─────────────────────  GLOSSARY  ─────────────────────
+For every occurrence of each SOURCE term in the input
+(text or phrase, case-insensitive, ignore surrounding punctuation)
+replace it **exactly** with the corresponding TARGET term
+in your output. Do NOT invent new replacements.
+
+${lines}
+──────────────────────────────────────────────────────
+`;
+}
+
+/* ──────────────────────────────────────────────────────────────
+ *  Prompt builders
+ * ────────────────────────────────────────────────────────────── */
 export const PROMPTS = {
-  // For popup/selected-text translation
-  translate: (text, targetLang) => `
-Translate the following text into ${targetLang}, preserving tone and style.
-Output only the translated text—no explanations or commentary.
+  /* 1) Translate selected text (popup) */
+  translate: (text, targetLang, glossary = []) => `
+Translate the text into ${targetLang}, preserving tone and style.
+${glossaryBlock(glossary)}
+Return **only** the translated text – no commentary.
 
 ${text}
-  `,
+  `.trim(),
 
   // For full-page (ID-wrapped) translation
 translate_webpage: (ids, texts, targetLang) => `
